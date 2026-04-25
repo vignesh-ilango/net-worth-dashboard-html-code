@@ -1,0 +1,3434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f3ef">
+<title>Net Worth Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #f4f3ef;
+    --surface:    #ffffff;
+    --surface2:   #f9f8f5;
+    --border:     rgba(0,0,0,0.08);
+    --border2:    rgba(0,0,0,0.14);
+    --text:       #1a1918;
+    --muted:      rgba(26,25,24,0.55);
+    --dim:        rgba(26,25,24,0.35);
+    --green:      #15803d;
+    --green-dim:  rgba(21,128,61,0.09);
+    --red:        #b91c1c;
+    --red-dim:    rgba(185,28,28,0.08);
+    --amber:      #92400e;
+    --amber-dim:  rgba(146,64,14,0.09);
+    --blue:       #1e40af;
+    --blue-dim:   rgba(30,64,175,0.08);
+    --purple:     #6b21a8;
+    --purple-dim: rgba(107,33,168,0.08);
+    --accent:     #3f6212;
+    --accent-bg:  #ecfccb;
+    --accent-dim: rgba(63,98,18,0.08);
+  }
+
+  html { font-size: 14px; scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; line-height: 1.6; }
+
+  /* ── Layout ─────────────────────────────────────────────────────────── */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { flex-shrink: 0; width: 300px; min-width: 180px; max-width: 520px; }
+  .main    { flex: 1; min-width: 0; }
+
+  /* ── Sidebar ─────────────────────────────────────────────────────────── */
+  .sidebar {
+    background: var(--surface); border-right: none;
+    padding: 22px 16px; display: flex; flex-direction: column; gap: 20px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 17px; letter-spacing: -0.02em; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+  .logo span { color: var(--muted); font-size: 10px; font-family: 'DM Mono', monospace; display: block; margin-top: 2px; }
+
+  .sidebar-section { display: flex; flex-direction: column; gap: 7px; }
+  .sidebar-label { font-size: 9px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase; margin-bottom: 1px; }
+
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 10px; color: var(--muted); }
+  .field input[type="number"], .field input[type="text"] {
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px;
+    padding: 5px 8px; width: 100%; outline: none; transition: border-color 0.15s;
+    -webkit-appearance: none; appearance: none;
+  }
+  .field input:focus { border-color: var(--accent); }
+
+  /* Loan card in sidebar */
+  .loan-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 10px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .loan-card-header { display: flex; align-items: center; gap: 6px; }
+  .loan-color-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .loan-name-input {
+    background: transparent !important; border: none !important;
+    border-bottom: 1px solid var(--border2) !important; border-radius: 0 !important;
+    padding: 2px 3px !important; font-size: 11px !important; color: var(--text) !important;
+    flex: 1; font-family: 'DM Mono', monospace; outline: none;
+  }
+  .loan-name-input:focus { border-bottom-color: var(--accent) !important; }
+  .remove-loan-btn { background: transparent; border: none; color: var(--dim); cursor: pointer; font-size: 14px; padding: 0 2px; transition: color 0.15s; }
+  .remove-loan-btn:hover { color: var(--red); }
+  .loan-fields-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .loan-pmt-chip {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--accent-dim); border-radius: 5px; padding: 4px 7px; font-size: 10px;
+    transition: background 0.2s;
+  }
+  .loan-pmt-chip .chip-label { color: var(--muted); flex-shrink: 0; }
+  .loan-pmt-chip .chip-val   { color: var(--accent); font-weight: 600; text-align: right; }
+  .add-loan-btn {
+    background: var(--accent-dim); border: 1px dashed rgba(63,98,18,0.3);
+    border-radius: 7px; color: var(--accent); font-family: 'DM Mono', monospace;
+    font-size: 10px; padding: 6px; cursor: pointer; width: 100%; text-align: center; transition: all 0.15s;
+  }
+  .add-loan-btn:hover { background: rgba(63,98,18,0.14); }
+  .add-loan-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .total-debt-chip {
+    background: var(--red-dim); border: 1px solid rgba(185,28,28,0.15);
+    border-radius: 7px; padding: 8px 10px; font-size: 11px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .total-debt-chip .tdc-label { color: var(--muted); font-size: 10px; }
+  .total-debt-chip .tdc-val   { color: var(--red); font-weight: 600; }
+
+  /* Bonus section */
+  .bonus-hint { font-size: 9px; color: var(--dim); line-height: 1.5; margin-top: 2px; padding: 5px 7px; background: var(--blue-dim); border-radius: 5px; }
+
+  /* ── Main ──────────────────────────────────────────────────────────── */
+  .main { padding: 26px 30px; display: flex; flex-direction: column; gap: 22px; overflow-x: hidden; }
+
+  /* View nav */
+  .view-nav { display: flex; gap: 3px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+  .vbtn { padding: 8px 16px; font-family: 'DM Mono', monospace; font-size: 11px; background: transparent; border: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; letter-spacing: 0.04em; }
+  .vbtn:hover { color: var(--text); }
+  .vbtn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  /* Yellow highlight for Debt Paydown tab */
+  .vbtn-yellow { background: rgba(234,179,8,0.13); color: #854d0e !important; border-radius: 7px 7px 0 0; font-weight: 600 !important; }
+  .vbtn-yellow::after { content: ' 💰'; font-size: 10px; }
+  .vbtn-yellow.active { background: rgba(234,179,8,0.22); border-bottom-color: #ca8a04 !important; color: #713f12 !important; }
+  .vbtn-insights { background: rgba(99,102,241,0.10); color: #4338ca !important; border-radius: 7px 7px 0 0; font-weight: 700 !important; letter-spacing: 0.02em; }
+  .vbtn-insights.active { background: rgba(99,102,241,0.18); border-bottom-color: #6366f1 !important; color: #3730a3 !important; }
+
+  /* Insights view */
+  .insights-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .insight-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; position: relative; overflow: hidden; }
+  .insight-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 12px 0 0 12px; }
+  .insight-card.critical::before { background: #dc2626; }
+  .insight-card.warn::before    { background: #d97706; }
+  .insight-card.good::before    { background: #16a34a; }
+  .insight-card.info::before    { background: #2563eb; }
+  .insight-card.purple::before  { background: #7c3aed; }
+  .insight-label { font-size: 9px; font-family: 'Syne', sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .insight-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .insight-body  { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .insight-body strong { color: var(--text); }
+  .insight-action { margin-top: 10px; padding: 7px 10px; border-radius: 7px; font-size: 10px; font-weight: 600; font-family: 'Syne', sans-serif; }
+  .insight-card.critical .insight-action { background: rgba(220,38,38,0.08); color: #dc2626; }
+  .insight-card.warn .insight-action     { background: rgba(217,119,6,0.08); color: #d97706; }
+  .insight-card.good .insight-action     { background: rgba(22,163,74,0.08); color: #16a34a; }
+  .insight-card.info .insight-action     { background: rgba(37,99,235,0.08); color: #2563eb; }
+  .insight-card.purple .insight-action   { background: rgba(124,58,237,0.08); color: #7c3aed; }
+  .insight-nw-bar { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .insight-milestone { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--muted); }
+  .insight-milestone .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .insight-milestone .label { flex: 1; }
+  .insight-milestone .val { font-weight: 600; color: var(--text); white-space: nowrap; }
+
+  /* Bonus impact card */
+  .bonus-impact-card { background: linear-gradient(135deg, rgba(234,179,8,0.06) 0%, rgba(234,179,8,0.02) 100%); border: 2px solid rgba(202,138,4,0.25); border-radius: 13px; padding: 18px 20px; }
+  .bonus-impact-card h3 { color: #713f12; }
+  .bi-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .bi-kpi { background: #fff; border: 1px solid rgba(202,138,4,0.2); border-radius: 9px; padding: 12px 14px; text-align: center; }
+  .bi-kpi-label { font-size: 9px; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .bi-kpi-val { font-family: 'DM Serif Display', serif; font-size: 18px; letter-spacing: -0.02em; margin: 4px 0 2px; color: #713f12; }
+  .bi-kpi-val.good { color: var(--green); }
+  .bi-kpi-val.bad  { color: var(--red);   }
+  .bi-kpi-sub { font-size: 10px; color: var(--muted); }
+  .bi-loan-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 11px; }
+  .bi-loan-label { width: 130px; flex-shrink: 0; color: var(--muted); }
+  .bi-bar-group { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .bi-bar-wrap { background: var(--surface2); border-radius: 4px; height: 8px; overflow: hidden; position: relative; }
+  .bi-bar-before { height: 100%; border-radius: 4px; background: rgba(185,28,28,0.45); transition: width 0.5s ease; }
+  .bi-bar-after  { height: 100%; border-radius: 4px; background: rgba(21,128,61,0.55); transition: width 0.5s ease; }
+  .bi-bar-label { font-size: 9px; color: var(--dim); }
+  .bi-applied-chip { font-size: 9px; padding: 2px 8px; border-radius: 99px; background: rgba(202,138,4,0.15); color: #713f12; font-weight: 600; white-space: nowrap; }
+  .bi-verdict { margin-top: 14px; padding: 11px 14px; border-radius: 9px; font-size: 11px; line-height: 1.6; }
+  .bi-verdict.good { background: var(--green-dim); color: var(--green); border: 1px solid rgba(21,128,61,0.2); }
+  .bi-verdict.great { background: rgba(202,138,4,0.1); color: #713f12; border: 1px solid rgba(202,138,4,0.25); }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .card h3 { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+  .card-subtitle { font-size: 10px; color: var(--muted); margin-top: -8px; margin-bottom: 12px; line-height: 1.5; }
+
+  /* Header */
+  .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .header-title { font-family: 'DM Serif Display', serif; font-size: 32px; letter-spacing: -0.03em; line-height: 1.1; }
+  .header-title em { font-style: italic; color: var(--accent); }
+  .header-sub { font-size: 10px; color: var(--muted); margin-top: 5px; }
+
+  /* Scenario tabs */
+  .tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tab { padding: 5px 12px; border-radius: 99px; font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--muted); transition: all 0.15s; }
+  .tab:hover { border-color: var(--accent); color: var(--accent); }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 11px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; }
+  .kpi-label { font-size: 9px; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .kpi-value { font-size: 22px; font-family: 'DM Serif Display', serif; letter-spacing: -0.02em; margin: 4px 0 2px; }
+  .kpi-value.neg { color: var(--red); }
+  .kpi-value.pos { color: var(--green); }
+  .kpi-sub { font-size: 10px; color: var(--muted); }
+  /* KPI breakdown rows */
+  .kpi-breakdown { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .kbd-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; padding: 1px 0; }
+  .kbd-label { color: var(--muted); }
+  .kbd-val   { font-weight: 600; }
+  .kbd-val.pos { color: var(--green); }
+  .kbd-val.neg { color: var(--red); }
+  .kbd-divider { border-top: 1px dashed var(--border2); margin: 3px 0; }
+  .kbd-total { border-top: 1px solid var(--border2); padding-top: 4px; margin-top: 2px; }
+
+  /* Resize handle */
+  .resize-handle {
+    width: 5px; cursor: col-resize; flex-shrink: 0;
+    background: transparent; position: relative; z-index: 10;
+    transition: background 0.15s;
+  }
+  .resize-handle:hover, .resize-handle.dragging { background: rgba(63,98,18,0.18); }
+  .resize-handle::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px; height: 32px; border-radius: 2px;
+    background: var(--border2);
+  }
+
+  /* Charts */
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .chart-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+  .leg-dot { width: 7px; height: 7px; border-radius: 2px; }
+
+  .two-col   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 11px; }
+
+  /* Scenario box */
+  .scenario-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+  .scenario-row:last-child { border-bottom: none; }
+  .skey { color: var(--muted); }
+  .sval { color: var(--text); font-weight: 500; }
+  .sval.good { color: var(--green); }
+  .sval.bad  { color: var(--red);   }
+  .sval.mid  { color: var(--amber); }
+
+  /* Milestones */
+  .milestones { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .milestone-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; }
+  .ms-label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+  .ms-value { font-size: 14px; font-family: 'DM Serif Display', serif; color: var(--accent); margin: 3px 0 2px; }
+  .ms-sub   { font-size: 10px; color: var(--muted); }
+
+  /* Amort table */
+  .loan-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .loan-section h3 { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .loan-subtitle { font-size: 10px; color: var(--muted); margin-bottom: 12px; }
+  .loan-tabs { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ltab { padding: 4px 10px; border-radius: 99px; font-size: 10px; cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--muted); font-family: 'DM Mono', monospace; transition: all 0.15s; }
+  .ltab.active { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+  .table-wrap { overflow-x: auto; max-height: 360px; overflow-y: auto; border-radius: 7px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead th { background: var(--surface2); color: var(--dim); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding: 9px 12px; text-align: right; position: sticky; top: 0; white-space: nowrap; }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr.milestone-row { background: rgba(63,98,18,0.04); }
+  tbody tr.yr5-row { background: rgba(30,64,175,0.04); }
+  .yr-row { cursor: pointer; user-select: none; }
+  .yr-row:hover td { background: rgba(255,255,255,0.025) !important; }
+  .yr-expand-indicator { display: inline-block; font-size: 8px; margin-right: 4px; transition: transform 0.15s ease; color: var(--accent); }
+  .yr-row.expanded .yr-expand-indicator { transform: rotate(90deg); }
+  .mo-row td { font-size: 10px; color: var(--muted); background: rgba(0,0,0,0.12); padding: 3px 10px !important; }
+  .mo-row.mo-last td { border-bottom: 1px solid var(--border); }
+  .mo-row td:first-child { color: var(--dim); padding-left: 24px !important; font-style: italic; }
+  tbody tr.yr10-row { background: rgba(63,98,18,0.06); }
+  tbody tr.positive-nw { }
+  tbody td { padding: 7px 12px; text-align: right; color: var(--muted); }
+  tbody td:first-child { text-align: left; color: var(--text); font-weight: 500; }
+  td.paid-col     { color: var(--green); }
+  td.int-col      { color: var(--red);   }
+  td.prin-col     { color: var(--blue);  }
+  td.bal-col      { color: var(--text);  }
+  td.badge-col    { color: var(--accent); font-size: 9px; letter-spacing: 0.06em; }
+  td.nw-pos { color: var(--green); font-weight: 600; }
+  td.nw-neg { color: var(--red); font-weight: 600; }
+  td.sal-col { color: var(--blue); }
+  td.debt-col { color: var(--red); }
+  td.assets-col { color: var(--green); }
+
+  /* Cash flow year header rows */
+  tr.cf-yr-header td {
+    background: var(--surface2); color: var(--accent); font-family: 'Syne', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 6px 12px; text-align: left !important; border-top: 2px solid rgba(63,98,18,0.15);
+    position: sticky; /* sticky year headers if desired */
+  }
+  tr.cf-debt-free td { background: rgba(21,128,61,0.04); }
+  .cf-jump-btn {
+    padding: 3px 9px; border-radius: 99px; font-family: 'DM Mono', monospace; font-size: 10px;
+    cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--muted);
+    transition: all 0.15s;
+  }
+  .cf-jump-btn:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+  /* Assumptions card */
+  .assump-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 10px; }
+  .assump-block { background: var(--surface2); border-radius: 8px; padding: 11px 13px; }
+  .assump-block-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 7px; letter-spacing: 0.03em; }
+  .assump-row { font-size: 10px; color: var(--muted); padding: 2px 0; border-bottom: 1px solid var(--border); line-height: 1.5; display: flex; gap: 6px; justify-content: space-between; }
+  .assump-row:last-child { border-bottom: none; }
+  .assump-key { color: var(--dim); flex-shrink: 0; }
+  .assump-val { color: var(--text); text-align: right; font-weight: 500; }
+  @media (max-width: 900px) { .assump-grid { grid-template-columns: 1fr 1fr; } }
+
+  /* Year-by-year section */
+  .yearly-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .yearly-section h3 { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+
+  /* ── DEBT PAYDOWN VIEW ───────────────────────────────────────────────── */
+  .cashflow-bar { display: flex; flex-direction: column; gap: 7px; }
+  .cf-row { display: flex; align-items: center; gap: 10px; font-size: 11px; }
+  .cf-label { color: var(--muted); width: 150px; flex-shrink: 0; font-size: 10px; }
+  .cf-bar-wrap { flex: 1; background: var(--surface2); border-radius: 4px; height: 7px; overflow: hidden; }
+  .cf-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .cf-amt { width: 80px; text-align: right; flex-shrink: 0; font-weight: 600; font-size: 11px; }
+  .stress-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 600; }
+  .stress-ok   { background: var(--green-dim); color: var(--green); }
+  .stress-warn { background: var(--amber-dim); color: var(--amber); }
+  .stress-bad  { background: var(--red-dim);   color: var(--red);   }
+
+  .loan-payoff-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 15px 17px; display: flex; flex-direction: column; gap: 10px; }
+  .lpc-header { display: flex; align-items: center; gap: 7px; }
+  .lpc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .lpc-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; flex: 1; }
+  .lpc-rate-badge { font-size: 9px; padding: 2px 7px; border-radius: 99px; font-weight: 600; }
+  .rate-low  { background: var(--green-dim); color: var(--green); }
+  .rate-mid  { background: var(--amber-dim); color: var(--amber); }
+  .rate-high { background: var(--red-dim);   color: var(--red);   }
+  .lpc-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; }
+  .lpc-stat { background: var(--surface2); border-radius: 7px; padding: 7px 9px; }
+  .lpc-stat-label { font-size: 9px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; }
+  .lpc-stat-val   { font-size: 13px; font-family: 'DM Serif Display', serif; color: var(--text); margin-top: 2px; }
+  .lpc-payoff-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; background: var(--surface2); border-radius: 6px; padding: 6px 9px; gap: 6px; flex-wrap: wrap; }
+
+  .strategy-card { background: var(--surface2); border: 2px solid var(--border); border-radius: 10px; padding: 13px 15px; transition: all 0.15s; }
+  .strategy-card.best { border-color: var(--green); background: var(--green-dim); }
+  .strategy-title { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+  .strategy-desc  { font-size: 10px; color: var(--muted); margin-bottom: 9px; line-height: 1.5; }
+  .strategy-stat  { font-size: 11px; color: var(--text); margin-bottom: 2px; }
+  .strategy-stat span { color: var(--accent); font-weight: 600; }
+  .strategy-save  { font-size: 10px; color: var(--green); margin-top: 4px; font-weight: 600; }
+
+  /* Extra payment controls */
+  .extra-pmt-row { display: flex; align-items: center; gap: 14px; padding: 10px 12px; background: var(--surface2); border-radius: 8px; }
+  .extra-pmt-row label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .extra-pmt-row input { width: 100px; }
+
+  .risk-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 11px; gap: 12px; }
+  .risk-row:last-child { border-bottom: none; }
+  .risk-label { color: var(--muted); line-height: 1.5; flex: 1; }
+  .risk-impact { text-align: right; flex-shrink: 0; }
+  .risk-impact strong { display: block; color: var(--text); font-size: 12px; }
+  .risk-impact small  { color: var(--red); font-size: 10px; }
+
+  /* ── COMPARE VIEW ────────────────────────────────────────────────────── */
+  .compare-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .compare-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .compare-panel.panel-a { border-top: 3px solid #15803d; }
+  .compare-panel.panel-b { border-top: 3px solid #1e40af; }
+  .compare-panel-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+  .panel-a .compare-panel-title { color: #15803d; }
+  .panel-b .compare-panel-title { color: #1e40af; }
+  .compare-panel .field { margin-bottom: 7px; }
+
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .cmp-table th { background: var(--surface2); color: var(--dim); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding: 9px 13px; text-align: right; }
+  .cmp-table th:first-child { text-align: left; }
+  .cmp-table td { padding: 9px 13px; border-bottom: 1px solid var(--border); text-align: right; }
+  .cmp-table td:first-child { text-align: left; color: var(--muted); }
+  .cmp-table tr:last-child td { border-bottom: none; }
+  .col-a { color: #15803d; font-weight: 600; }
+  .col-b { color: #1e40af; font-weight: 600; }
+  .col-diff.pos { color: var(--green); font-weight: 600; }
+  .col-diff.neg { color: var(--red);   font-weight: 600; }
+
+  .footer { font-size: 10px; color: var(--dim); padding-top: 8px; border-top: 1px solid var(--border); }
+
+  @media (max-width: 900px) {
+    .app { flex-direction: column; }
+    .sidebar { position: static; height: auto; width: 100%; max-width: none; min-width: 0; }
+    .kpis { grid-template-columns: repeat(2,1fr); }
+    .two-col, .compare-inputs { grid-template-columns: 1fr; }
+    .milestones { grid-template-columns: repeat(2,1fr); }
+    .main { padding: 16px 12px; }
+    .three-col, .lpc-stats { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── iPhone-specific (≤480px) ───────────────────────── */
+  @media (max-width: 480px) {
+    html { font-size: 13px; }
+    body {
+      /* Respect iPhone notch / home indicator */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    .app { flex-direction: column; }
+
+    /* Sidebar becomes a top panel, scrolls with page */
+    .sidebar {
+      position: static; height: auto; width: 100%;
+      max-width: none; min-width: 0;
+      padding: 16px 14px; gap: 16px;
+      border-right: none; border-bottom: 1px solid var(--border);
+    }
+
+    /* Main content full-width with breathing room */
+    .main { padding: 16px 12px; gap: 16px; }
+
+    /* Single-column for everything */
+    .kpis,
+    .two-col,
+    .compare-inputs,
+    .three-col,
+    .lpc-stats,
+    .milestones,
+    .assump-grid,
+    .insights-grid,
+    .bi-kpi-row { grid-template-columns: 1fr !important; gap: 10px !important; }
+
+    /* View nav: horizontal scroll instead of cramming */
+    .view-nav {
+      overflow-x: auto; flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .view-nav::-webkit-scrollbar { display: none; }
+    .vbtn { flex-shrink: 0; padding: 10px 14px; font-size: 12px; }
+
+    /* Bigger tap targets — Apple recommends 44px min */
+    .plaid-connect-btn { padding: 14px 12px; font-size: 12px; min-height: 44px; }
+    .add-loan-btn { padding: 12px 8px; font-size: 11px; min-height: 40px; }
+    .field input[type="number"],
+    .field input[type="text"] {
+      padding: 10px 10px;
+      font-size: 16px; /* prevents iOS zoom-on-focus */
+      min-height: 40px;
+    }
+    .plaid-server-url-row input {
+      padding: 10px 10px; font-size: 14px; min-height: 40px;
+    }
+    .loan-name-input { font-size: 14px !important; padding: 6px 4px !important; }
+
+    /* Loan card: stack the two amount fields, give them room */
+    .loan-fields-2 { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .loan-card { padding: 12px; gap: 8px; }
+    .remove-loan-btn { font-size: 20px; padding: 4px 8px; min-width: 32px; min-height: 32px; }
+
+    /* Insight + bonus cards */
+    .insight-card { padding: 14px 16px; }
+    .bonus-impact-card { padding: 16px 14px; }
+    .bi-kpi { padding: 14px 10px; }
+    .bi-kpi-val { font-size: 20px; }
+
+    /* Plaid auto-fill bar — make button tappable */
+    .plaid-autofill-bar { padding: 10px 12px; font-size: 11px; flex-wrap: wrap; }
+    .plaid-autofill-bar button { padding: 8px 12px; font-size: 11px; min-height: 36px; }
+  }
+
+  /* ── Very narrow (<360px, e.g. iPhone SE in landscape split view) ── */
+  @media (max-width: 360px) {
+    .main { padding: 12px 10px; }
+    .sidebar { padding: 14px 10px; }
+    .vbtn { padding: 10px 12px; font-size: 11px; }
+  }
+
+  /* ── Plaid Connect ───────────────────────────────────── */
+  .plaid-section { border-top: 1px solid var(--border); padding-top: 14px; }
+  .plaid-connect-btn {
+    width: 100%; padding: 9px 12px; border-radius: 8px; border: 1.5px solid #2563eb;
+    background: rgba(37,99,235,0.07); color: #1d4ed8; font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 6px; transition: all 0.15s; letter-spacing: 0.02em;
+  }
+  .plaid-connect-btn:hover { background: rgba(37,99,235,0.14); }
+  .plaid-connect-btn:disabled { opacity: 0.5; cursor: default; }
+  .plaid-status { margin-top: 8px; font-size: 10px; color: var(--muted); line-height: 1.5; }
+  .plaid-status .linked-bank {
+    display: flex; align-items: center; gap: 5px; padding: 5px 8px;
+    background: var(--green-dim); border-radius: 6px; margin-top: 4px; color: var(--green); font-size: 10px;
+  }
+  .plaid-status .linked-bank .unlink-btn {
+    margin-left: auto; cursor: pointer; color: var(--muted); font-size: 10px; background: none;
+    border: none; font-family: 'DM Mono',monospace; padding: 0; opacity: 0.6;
+  }
+  .plaid-status .linked-bank .unlink-btn:hover { opacity: 1; color: var(--red); }
+  .plaid-autofill-bar {
+    margin-top: 8px; padding: 7px 10px; border-radius: 7px; background: var(--blue-dim);
+    border: 1px solid rgba(30,64,175,0.15); font-size: 10px; color: var(--blue);
+    display: none; align-items: center; gap: 6px;
+  }
+  .plaid-autofill-bar.show { display: flex; }
+  .plaid-autofill-bar button {
+    margin-left: auto; background: #2563eb; color: #fff; border: none; border-radius: 5px;
+    font-size: 10px; font-family: 'DM Mono',monospace; padding: 3px 8px; cursor: pointer; white-space: nowrap;
+  }
+  .plaid-server-url-row { margin-bottom: 6px; display: flex; gap: 5px; align-items: center; }
+  .plaid-server-url-row input {
+    flex: 1; font-size: 10px; padding: 5px 7px; border: 1px solid var(--border2);
+    border-radius: 5px; font-family: 'DM Mono',monospace; background: var(--surface2); color: var(--text);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<aside class="sidebar">
+  <div class="logo">net worth<br><span>MBA edition · Apr 2026</span></div>
+
+  <!-- DEBTS -->
+  <div class="sidebar-section">
+    <p class="sidebar-label">Debts</p>
+    <div id="loan-inputs"></div>
+    <button class="add-loan-btn" id="add-loan-btn" onclick="addLoan()">+ add loan</button>
+    <div class="total-debt-chip" id="sidebar-debt-chip">
+      <span class="tdc-label">Total monthly payment</span>
+      <span class="tdc-val" id="sidebar-total-pmt">—</span>
+    </div>
+  </div>
+
+  <!-- ASSETS -->
+  <div class="sidebar-section">
+    <p class="sidebar-label">Assets</p>
+    <div class="field"><label>Savings / checking ($)</label>
+      <input type="number" id="s_savings" value="0" step="500" min="0" oninput="onSidebarInput()">
+    </div>
+    <div class="field"><label>401k / investments ($)</label>
+      <input type="number" id="s_invest" value="8000" step="1000" min="0" oninput="onSidebarInput()">
+    </div>
+    <div class="field"><label>Other assets ($)</label>
+      <input type="number" id="s_other" value="0" step="500" min="0" oninput="onSidebarInput()">
+    </div>
+  </div>
+
+  <!-- INCOME & SAVINGS -->
+  <div class="sidebar-section">
+    <p class="sidebar-label">Income &amp; savings</p>
+    <div class="field"><label>Starting salary ($/yr) <span style="color:var(--green);font-size:9px">Deloitte S&A 2026</span></label>
+      <input type="number" id="s_sal" value="175000" step="5000" min="0" oninput="onSidebarInput()">
+    </div>
+    <div class="field"><label>Annual raise (%)</label>
+      <input type="number" id="s_raise" value="4" step="0.5" min="0" oninput="onSidebarInput()">
+    </div>
+    <div class="field"><label>Monthly savings ($)</label>
+      <input type="number" id="s_msave" value="1500" step="100" min="0" oninput="onSidebarInput()">
+    </div>
+    <div class="field"><label>Investment return (%/yr)</label>
+      <input type="number" id="s_ret" value="7" step="0.5" min="0" oninput="onSidebarInput()">
+    </div>
+  </div>
+
+  <!-- BONUSES & ONE-TIME INCOME -->
+  <div class="sidebar-section">
+    <p class="sidebar-label">Bonuses &amp; one-time</p>
+    <div class="field"><label>Intern signing bonus ($) <span style="color:var(--blue);font-size:9px">offer letter</span></label>
+      <input type="number" id="s_intern_bonus" value="2500" step="500" min="0" oninput="onSidebarInput()">
+    </div>
+    <div class="field"><label>FT signing bonus ($) <span style="color:var(--green);font-size:9px">Deloitte S&A</span></label>
+      <input type="number" id="s_ft_bonus" value="30000" step="1000" min="0" oninput="onSidebarInput()">
+    </div>
+    <div class="field"><label>Deloitte MBA 2nd yr tuition ($) <span style="color:var(--blue);font-size:9px">PV after NY tax</span></label>
+      <input type="number" id="s_tuition" value="37600" step="500" min="0" oninput="onSidebarInput()">
+    </div>
+    <div class="bonus-hint">
+      Intern: $3,365/wk × ~9 wks = ~$30,285 salary + $2,500 signing · FT signing $30k added Yr 1 ·
+      Tuition: $64,612 gross → $37,600 PV (35% NY tax, disc. @ 6.54%)
+    </div>
+  </div>
+
+  <!-- PLAID CONNECT -->
+  <div class="sidebar-section plaid-section">
+    <p class="sidebar-label">🏦 Live bank sync <span style="font-size:9px;color:var(--blue);font-weight:700">PLAID</span></p>
+
+    <!-- Server URL input — paste your Railway URL here -->
+    <div class="plaid-server-url-row">
+      <input type="text" id="plaid-server-url"
+        placeholder="https://yourapp.up.railway.app"
+        oninput="savePlaidServerUrl()"
+        title="Paste your Railway server URL here">
+    </div>
+
+    <button class="plaid-connect-btn" id="plaid-connect-btn" onclick="plaidOpenLink()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Connect bank account
+    </button>
+
+    <div class="plaid-status" id="plaid-status"></div>
+
+    <div class="plaid-autofill-bar" id="plaid-autofill-bar">
+      <span id="plaid-autofill-msg">Live data ready</span>
+      <button onclick="plaidAutoFill()">↓ Auto-fill sidebar</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════ RESIZE HANDLE ═══════════ -->
+<div class="resize-handle" id="resize-handle"></div>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<main class="main">
+
+  <nav class="view-nav">
+    <button class="vbtn active" data-view="overview"   onclick="showView('overview',this)">Overview</button>
+    <button class="vbtn"        data-view="yearly"     onclick="showView('yearly',this)">Year-by-Year</button>
+    <button class="vbtn vbtn-yellow" data-view="debt" onclick="showView('debt',this)">Debt Paydown</button>
+    <button class="vbtn"        data-view="compare"    onclick="showView('compare',this)">Compare Paths</button>
+    <button class="vbtn vbtn-insights" data-view="insights" onclick="showView('insights',this)">✦ Insights</button>
+  </nav>
+
+  <!-- ════════════════ OVERVIEW ════════════════ -->
+  <div id="view-overview" class="view">
+    <div class="header">
+      <div>
+        <div class="header-title">your <em>financial</em> future</div>
+        <div class="header-sub">age 29 → 59 · three scenarios · live projections</div>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-scenario="base"        onclick="setScenario('base',this)">Base case</button>
+        <button class="tab"        data-scenario="aggressive"  onclick="setScenario('aggressive',this)">Aggressive</button>
+        <button class="tab"        data-scenario="conservative"onclick="setScenario('conservative',this)">Conservative</button>
+        <button class="tab"        data-scenario="custom"      onclick="setScenario('custom',this)">Custom</button>
+      </div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+    <div class="milestones" id="milestones"></div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">net worth projection · 30 years</span>
+        <div class="legend">
+          <span class="leg"><span class="leg-dot" style="background:#15803d"></span>net worth</span>
+          <span class="leg"><span class="leg-dot" style="background:#1e40af"></span>assets</span>
+          <span class="leg"><span class="leg-dot" style="background:#b91c1c"></span>debt</span>
+        </div>
+      </div>
+      <div style="position:relative;height:280px"><canvas id="mainChart"></canvas></div>
+    </div>
+
+    <div class="two-col">
+      <div class="card" id="scenario-box"><h3>scenario assumptions</h3></div>
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title">debt paydown by loan</span></div>
+        <div style="position:relative;height:210px"><canvas id="debtChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="loan-section">
+      <h3>loan payoff schedule</h3>
+      <p class="loan-subtitle">month-by-month amortization using exact loan terms · starting Apr 2026</p>
+      <div class="loan-tabs" id="amort-tabs"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th style="text-align:left">Month</th>
+            <th>Payment</th><th>Principal</th><th>Interest</th>
+            <th>Balance</th><th>Note</th>
+          </tr></thead>
+          <tbody id="loanBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Assumptions -->
+    <div class="card" id="assumptions-card">
+      <h3>assumptions &amp; methodology</h3>
+    </div>
+
+    <div class="footer">All projections use exact amortization formulas from today's balances. Not financial advice. · Built with Claude</div>
+  </div>
+
+  <!-- ════════════════ YEAR-BY-YEAR (combined with cash flows) ════════════════ -->
+  <div id="view-yearly" class="view" hidden>
+    <div class="header">
+      <div>
+        <div class="header-title">year-by-year <em>cash flows</em></div>
+        <div class="header-sub">one row per year · income, payments, savings, net worth · Apr 2026 → Apr 2056</div>
+      </div>
+    </div>
+
+    <div class="kpis" id="yearly-kpis"></div>
+
+    <div class="two-col">
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">net worth · assets · debt · 30 years</span>
+        </div>
+        <div style="position:relative;height:230px"><canvas id="yearlyChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">annual cash composition · income vs payments vs savings</span>
+        </div>
+        <div style="position:relative;height:230px"><canvas id="salaryChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="yearly-section">
+      <h3>annual cash flows · year by year</h3>
+      <p class="card-subtitle">each row = one full year of cash activity · take-home estimated after taxes · freed payments = payoff windfalls reinvested</p>
+      <div class="table-wrap" style="max-height:640px">
+        <table>
+          <thead><tr>
+            <th style="text-align:left">Year</th>
+            <th style="text-align:left">Period</th>
+            <th>Annual Salary</th>
+            <th>Est. Take-Home</th>
+            <th>Loan Payments</th>
+            <th>Savings Deposited</th>
+            <th>Freed Pmts</th>
+            <th>Investments EOY</th>
+            <th>Debt EOY</th>
+            <th>Net Worth EOY</th>
+          </tr></thead>
+          <tbody id="yearlyBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">Take-home estimated using progressive tax brackets. Freed payments = loan payoff windfalls reinvested into investments. All numbers tie to Overview tab. Not financial advice.</div>
+  </div>
+
+  <!-- ════════════════ DEBT PAYDOWN ════════════════ -->
+  <div id="view-debt" class="view" hidden>
+    <div class="header">
+      <div>
+        <div class="header-title">debt <em>paydown</em> planner</div>
+        <div class="header-sub">exact payoff dates · cash flow · Jersey City risk factors</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>monthly cash flow</h3>
+        <p class="card-subtitle">estimated take-home after NJ taxes · starting Apr 2026</p>
+        <div class="cashflow-bar" id="cf-bar"></div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:10px;color:var(--muted)">budget health:</span>
+          <span id="cf-stress-badge" class="stress-badge"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>living cost inputs</h3>
+        <p class="card-subtitle">Jersey City context · adjust to your actual numbers</p>
+        <div class="field" style="margin-bottom:9px"><label>Monthly rent ($)</label>
+          <input type="number" id="d_rent" value="2800" step="50" min="0" oninput="updateDebt()">
+        </div>
+        <div class="field" style="margin-bottom:9px"><label>Other fixed expenses/mo ($)</label>
+          <input type="number" id="d_expenses" value="1200" step="50" min="0" oninput="updateDebt()">
+        </div>
+        <div class="field" style="margin-bottom:9px"><label>Annual rent increase (%)</label>
+          <input type="number" id="d_rent_increase" value="5" step="0.5" min="0" max="20" oninput="updateDebt()">
+        </div>
+        <div class="field"><label>Extra loan payment/mo ($) <span style="color:var(--green);font-size:9px">above per-loan amounts</span></label>
+          <input type="number" id="d_extra" value="0" step="50" min="0" oninput="updateDebt()">
+        </div>
+        <div style="margin-top:10px;padding:9px;background:var(--amber-dim);border-radius:7px;font-size:10px;color:var(--amber);line-height:1.5">
+          ⚠ JC rents historically +5–8%/yr. Per-loan payments reflect your inputs above.
+        </div>
+      </div>
+    </div>
+
+    <!-- Loan payoff cards -->
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px">your loans · exact payoff forecast</div>
+      <div id="debt-loan-cards" style="display:flex;flex-direction:column;gap:11px"></div>
+    </div>
+
+    <!-- Strategy comparison -->
+    <div class="card">
+      <h3>payoff strategy comparison</h3>
+      <p class="card-subtitle">minimum payments on all loans · extra budget allocated per strategy · exact amortization math</p>
+      <div class="three-col" id="strategy-cards" style="margin-top:4px"></div>
+    </div>
+
+    <!-- Bonus Lump-Sum Impact -->
+    <div class="bonus-impact-card" id="bonus-impact-card">
+      <h3>🎯 signing bonus lump-sum impact — avalanche method</h3>
+      <p class="card-subtitle" style="color:var(--amber)">what happens if you throw your entire intern + FT signing bonus at debt on day 1 · highest rate first</p>
+      <div class="bi-kpi-row" id="bi-kpis"></div>
+      <div id="bi-loan-bars"></div>
+      <div class="two-col" style="margin-top:14px">
+        <div style="background:#fff;border:1px solid rgba(202,138,4,0.2);border-radius:9px;padding:12px">
+          <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#713f12;margin-bottom:8px">debt paydown · with vs without bonus</div>
+          <div style="position:relative;height:200px"><canvas id="bonusCompareChart"></canvas></div>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(202,138,4,0.2);border-radius:9px;padding:12px">
+          <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#713f12;margin-bottom:8px">per-loan balance · month by month</div>
+          <div style="position:relative;height:200px"><canvas id="perLoanChart"></canvas></div>
+        </div>
+      </div>
+      <div id="bi-verdict"></div>
+    </div>
+
+    <!-- Per-Loan Month Schedule -->
+    <div class="card">
+      <h3>per-loan month-by-month paydown</h3>
+      <p class="card-subtitle">balance remaining for each loan every month · see exactly when each one hits zero</p>
+      <div class="loan-tabs" id="debt-monthly-tabs"></div>
+      <div class="table-wrap" style="max-height:320px">
+        <table>
+          <thead><tr>
+            <th style="text-align:left">Month</th>
+            <th style="text-align:left">Date</th>
+            <th>Payment</th><th>Principal</th><th>Interest</th>
+            <th>Balance</th><th>% Paid</th>
+          </tr></thead>
+          <tbody id="debtMonthlyBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Risk scenarios -->
+    <div class="card">
+      <h3>risk scenarios</h3>
+      <p class="card-subtitle">how shocks affect your payoff timeline from today</p>
+      <div id="risk-rows"></div>
+    </div>
+
+    <div class="footer">Exact amortization formulas. Payoff dates start April 2026.</div>
+  </div>
+
+  <!-- ════════════════ CASH FLOWS ════════════════ -->
+  <!-- ════════════════ COMPARE PATHS ════════════════ -->
+  <div id="view-compare" class="view" hidden>
+    <div class="header">
+      <div>
+        <div class="header-title"><em>compare</em> your paths</div>
+        <div class="header-sub">MBA path vs previous job · same debt, different income · 30-year projection</div>
+      </div>
+    </div>
+
+    <div class="compare-inputs">
+      <div class="compare-panel panel-a">
+        <div class="compare-panel-title">▲ Path A — MBA / Current</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Reads from sidebar automatically.</div>
+        <div id="cmp-a-summary"></div>
+      </div>
+      <div class="compare-panel panel-b">
+        <div class="compare-panel-title">▼ Path B — Previous / Old Job</div>
+        <div class="field" style="margin-bottom:7px"><label>Salary ($/yr)</label>
+          <input type="number" id="b_sal" value="72000" step="5000" min="0" oninput="updateCompare()">
+        </div>
+        <div class="field" style="margin-bottom:7px"><label>Annual raise (%)</label>
+          <input type="number" id="b_raise" value="3" step="0.5" min="0" oninput="updateCompare()">
+        </div>
+        <div class="field" style="margin-bottom:7px"><label>Monthly savings ($)</label>
+          <input type="number" id="b_msave" value="600" step="100" min="0" oninput="updateCompare()">
+        </div>
+        <div class="field" style="margin-bottom:7px"><label>Investment return (%)</label>
+          <input type="number" id="b_ret" value="7" step="0.5" min="0" oninput="updateCompare()">
+        </div>
+        <div class="field"><label>Extra loan payment/mo ($)</label>
+          <input type="number" id="b_extra" value="0" step="50" min="0" oninput="updateCompare()">
+        </div>
+        <div style="margin-top:8px;padding:8px;background:var(--blue-dim);border-radius:7px;font-size:10px;color:var(--blue);line-height:1.5">
+          Both paths use the same loan balances, rates, and terms from the sidebar. Difference is income only.
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">net worth · Path A vs Path B</span>
+        <div class="legend">
+          <span class="leg"><span class="leg-dot" style="background:#15803d"></span>Path A (MBA)</span>
+          <span class="leg"><span class="leg-dot" style="background:#1e40af"></span>Path B (Old job)</span>
+        </div>
+      </div>
+      <div style="position:relative;height:280px"><canvas id="compareChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>head-to-head comparison</h3>
+      <div class="table-wrap" style="max-height:none">
+        <table class="cmp-table">
+          <thead><tr>
+            <th style="text-align:left">Metric</th>
+            <th class="col-a">Path A (MBA)</th>
+            <th class="col-b">Path B (Old)</th>
+            <th>A − B</th>
+          </tr></thead>
+          <tbody id="cmp-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>debt burden by year — same loans, different salary squeeze</h3>
+      <p class="card-subtitle">same loan payments on both paths — but as % of take-home, the burden looks very different · green = under 20% · red = over 30%</p>
+      <div class="table-wrap" style="max-height:460px">
+        <table>
+          <thead><tr>
+            <th style="text-align:left">Year</th>
+            <th class="col-a">A Take-Home</th>
+            <th class="col-b">B Take-Home</th>
+            <th>Debt Service/yr</th>
+            <th class="col-a">A Burden %</th>
+            <th class="col-b">B Burden %</th>
+            <th>Debt Remaining</th>
+          </tr></thead>
+          <tbody id="cmp-debt-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">Both paths use the same loan terms. Freed loan payments reinvested when loans pay off. Not financial advice. · Built with Claude</div>
+  </div>
+
+  <!-- ════════════════ INSIGHTS ════════════════ -->
+  <div id="view-insights" class="view" hidden>
+    <div class="header">
+      <div>
+        <div class="header-title">✦ <em>personalized</em> insights</div>
+        <div class="header-sub">data-driven recommendations based on your actual numbers · updates live with sidebar inputs</div>
+      </div>
+    </div>
+    <div class="kpis" id="insights-score-row"></div>
+    <div class="insights-grid" id="insights-grid"></div>
+    <div class="footer">Recommendations generated from your sidebar inputs using rule-based financial logic. Not financial advice. · Built with Claude</div>
+  </div>
+
+</main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════════════════
+let mainChart, debtChart, compareChart, yearlyChart, salaryChart;
+let currentScenario = 'base';
+let currentLoanTab  = 'all';
+let currentView     = 'overview';
+let lastParams      = {};
+let loanCounter     = 0;
+let loans           = [];
+
+const LOAN_COLORS = ['#7c3aed','#1e40af','#b91c1c','#15803d','#b45309','#be185d','#0e7490'];
+const MAX_LOANS   = 7;
+const C = { grid: 'rgba(0,0,0,0.06)', ticks: 'rgba(26,25,24,0.45)', font: { size: 11, family: 'DM Mono' } };
+
+// ═══════════════════════════════════════════════════════════════════════
+//  CORE LOAN MATH
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Standard amortization minimum payment formula.
+ * PMT = PV · r · (1+r)^n / ((1+r)^n − 1)
+ */
+function calcLoanPayment(loan) {
+  if (!loan || loan.bal <= 0 || loan.months <= 0) return 0;
+  const r = loan.rate / 100 / 12;
+  if (r === 0) return loan.bal / loan.months;
+  const rn = Math.pow(1 + r, loan.months);
+  return loan.bal * r * rn / (rn - 1);
+}
+
+/**
+ * Effective payment: uses user-set custPmt if provided, else calculated minimum.
+ */
+function effectiveLoanPayment(loan) {
+  if (loan.custPmt !== null && loan.custPmt > 0) return loan.custPmt;
+  return calcLoanPayment(loan);
+}
+
+/**
+ * Exact payoff months given a payment amount (different from term-based minimum).
+ * n = -ln(1 − r·PV/PMT) / ln(1+r)
+ */
+function payoffMonthsAtPmt(bal, mrate, pmt) {
+  if (bal <= 0) return 0;
+  if (pmt <= 0) return Infinity;
+  if (mrate === 0) return Math.ceil(bal / pmt);
+  if (pmt <= bal * mrate) return Infinity; // payment doesn't cover interest
+  return Math.ceil(-Math.log(1 - mrate * bal / pmt) / Math.log(1 + mrate));
+}
+
+/** Effective payoff months using the effective (possibly custom) payment */
+function effectivePayoffMonths(loan) {
+  const pmt = effectiveLoanPayment(loan);
+  if (pmt <= 0 || loan.bal <= 0) return 0;
+  return payoffMonthsAtPmt(loan.bal, loan.rate / 100 / 12, pmt);
+}
+
+/** Total cash out from today using effective payment */
+function effectiveTotalPayoff(loan) {
+  const mo = effectivePayoffMonths(loan);
+  if (!isFinite(mo)) return Infinity;
+  return effectiveLoanPayment(loan) * mo;
+}
+
+/** Remaining interest using effective payment */
+function effectiveRemainingInterest(loan) {
+  const tp = effectiveTotalPayoff(loan);
+  if (!isFinite(tp)) return Infinity;
+  return Math.max(0, tp - loan.bal);
+}
+
+/** Legacy helpers (kept for scenario box display) */
+function totalRemainingPayoff(loan)  { return effectiveTotalPayoff(loan); }
+function remainingInterest(loan)     { return effectiveRemainingInterest(loan); }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DATE HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const SCHED_Y0 = 2026, SCHED_M0 = 3; // April = index 3
+
+function monthToDate(m) {
+  const t = SCHED_M0 + (m - 1);
+  return MN[t % 12] + ' ' + (SCHED_Y0 + Math.floor(t / 12));
+}
+function yearToDate(y) {
+  return 'Apr ' + (SCHED_Y0 + y);
+}
+function monthToYear(m) {
+  return SCHED_Y0 + Math.floor((SCHED_M0 + m - 1) / 12);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SCENARIO PRESETS
+// ═══════════════════════════════════════════════════════════════════════
+const scenarioDefaults = {
+  base: {
+    label: 'Base case',
+    loans: [
+      { name: 'MBA Loan',    bal: 150000, rate: 7.73, months: 120, custPmt: 1096.90 },
+      { name: 'Undergrad',   bal: 82174,  rate: 4.99, months: 231, custPmt: 452 },
+      { name: 'Credit Card', bal: 1700,   rate: 22.0, months: 18,  custPmt: 296 },
+    ],
+    savings:0, invest:8000, other:0,
+    sal:175000, raise:4, msave:1500, ret:7,
+    desc:'Deloitte S&A 2026 · $175k base + $30k FT signing + $2.5k intern signing + $37.6k tuition PV. Actual loan balances & payments.'
+  },
+  aggressive: {
+    label: 'Aggressive paydown',
+    loans: [
+      { name: 'MBA Loan',    bal: 150000, rate: 7.73, months: 84,  custPmt: null },
+      { name: 'Undergrad',   bal: 82174,  rate: 4.99, months: 120, custPmt: null },
+      { name: 'Credit Card', bal: 1700,   rate: 22.0, months: 6,   custPmt: null },
+    ],
+    savings:0, invest:8000, other:0,
+    sal:175000, raise:5, msave:3000, ret:8,
+    desc:'Same debt, accelerated payoff terms + higher monthly savings. What if you throw extra cash at loans?'
+  },
+  conservative: {
+    label: 'Conservative',
+    loans: [
+      { name: 'MBA Loan',    bal: 150000, rate: 7.73, months: 180, custPmt: null },
+      { name: 'Undergrad',   bal: 82174,  rate: 4.99, months: 300, custPmt: null },
+      { name: 'Credit Card', bal: 1700,   rate: 22.0, months: 24,  custPmt: null },
+    ],
+    savings:0, invest:8000, other:0,
+    sal:175000, raise:3, msave:800, ret:5.5,
+    desc:'Same debt, extended loan terms + modest savings. Lower raise trajectory, conservative market returns.'
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  LOAN MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════
+function makeLoan(name, bal, rate, months, custPmt = null) {
+  return { id: 'loan_' + (loanCounter++), name, bal, rate, months, custPmt };
+}
+
+function setLoans(defs) {
+  loanCounter = 0;
+  loans = defs.map(d => makeLoan(d.name, d.bal, d.rate, d.months, d.custPmt || null));
+}
+
+function addLoan() {
+  if (loans.length >= MAX_LOANS) return;
+  loans.push(makeLoan('New Loan', 0, 5.0, 60, null));
+  renderLoanInputs(); renderAmortTabs(); switchToCustom(); update();
+}
+
+function removeLoan(id) {
+  if (loans.length <= 1) return;
+  loans = loans.filter(l => l.id !== id);
+  if (currentLoanTab === id) currentLoanTab = 'all';
+  renderLoanInputs(); renderAmortTabs(); switchToCustom(); update();
+}
+
+function renderLoanInputs() {
+  const c = document.getElementById('loan-inputs');
+  c.innerHTML = '';
+  loans.forEach((loan, i) => {
+    const color  = LOAN_COLORS[i % LOAN_COLORS.length];
+    const minPmt = calcLoanPayment(loan);
+    const effPmt = effectiveLoanPayment(loan);
+    // Payment input value: show custPmt if set, else show calculated min
+    const pmtVal = loan.custPmt !== null ? Math.round(loan.custPmt) : (minPmt > 0 ? Math.round(minPmt) : '');
+    const card   = document.createElement('div');
+    card.className = 'loan-card';
+    card.innerHTML = `
+      <div class="loan-card-header">
+        <div class="loan-color-dot" style="background:${color}"></div>
+        <input type="text" class="loan-name-input" value="${loan.name}" placeholder="Loan name"
+          oninput="onLoanName('${loan.id}',this.value)"/>
+        ${loans.length > 1 ? `<button class="remove-loan-btn" onclick="removeLoan('${loan.id}')">×</button>` : ''}
+      </div>
+      <div class="loan-fields-2">
+        <div class="field"><label>Balance ($)</label>
+          <input type="number" value="${loan.bal}" step="1000" min="0"
+            oninput="onLoanBal('${loan.id}',this.value)"/>
+        </div>
+        <div class="field"><label>Rate (%/yr)</label>
+          <input type="number" value="${loan.rate}" step="0.01" min="0" max="50"
+            oninput="onLoanRate('${loan.id}',this.value)"/>
+        </div>
+      </div>
+      <div class="loan-fields-2">
+        <div class="field"><label>Months remaining</label>
+          <input type="number" value="${loan.months}" step="1" min="1" max="600"
+            oninput="onLoanMonths('${loan.id}',this.value)"/>
+        </div>
+        <div class="field"><label>Monthly payment ($)</label>
+          <input type="number" value="${pmtVal}" step="10" min="0"
+            placeholder="${minPmt > 0 ? Math.round(minPmt) : ''}"
+            oninput="onLoanCustPmt('${loan.id}',this.value)"/>
+        </div>
+      </div>
+      <div class="loan-pmt-chip" id="chip_${loan.id}"></div>`;
+    c.appendChild(card);
+    // Set initial chip state after appending
+    updateLoanChip(loan);
+  });
+  document.getElementById('add-loan-btn').disabled = loans.length >= MAX_LOANS;
+  updateSidebarDebtChip();
+}
+
+function updateLoanChip(loan) {
+  const chip = document.getElementById('chip_' + loan.id);
+  if (!chip) return;
+  const minPmt = calcLoanPayment(loan);
+  const effPmt = effectiveLoanPayment(loan);
+  const mrate  = loan.rate / 100 / 12;
+  const minInt = loan.bal * mrate; // monthly interest on current balance
+
+  if (minPmt <= 0) {
+    chip.style.background = 'var(--surface2)';
+    chip.innerHTML = `<span class="chip-label">Enter balance &amp; rate</span><span class="chip-val" style="color:var(--dim)">—</span>`;
+  } else if (effPmt < minInt + 0.01) {
+    // Below interest → balance will grow
+    chip.style.background = 'var(--red-dim)';
+    chip.innerHTML = `<span class="chip-label">⚠ Below interest! Balance grows</span><span class="chip-val" style="color:var(--red)">${fmtMo(effPmt)}/mo</span>`;
+  } else if (loan.custPmt !== null && effPmt < minPmt - 0.5) {
+    // Custom but below minimum
+    chip.style.background = 'var(--amber-dim)';
+    chip.innerHTML = `<span class="chip-label">⚠ Below min · takes longer</span><span class="chip-val" style="color:var(--amber)">${fmtMo(effPmt)}/mo (min ${fmtMo(minPmt)})</span>`;
+  } else if (loan.custPmt !== null && effPmt > minPmt + 0.5) {
+    // Paying extra — show accelerated payoff
+    const accelMo = effectivePayoffMonths(loan);
+    const saving  = Math.round((minPmt * loan.months) - (effPmt * accelMo));
+    chip.style.background = 'var(--green-dim)';
+    chip.innerHTML = `<span class="chip-label">↑ Paying extra · pays off ${monthToDate(accelMo)}</span><span class="chip-val" style="color:var(--green)">${fmtMo(effPmt)}/mo · saves ${fmt(saving)}</span>`;
+  } else {
+    // At calculated minimum
+    chip.style.background = 'var(--accent-dim)';
+    chip.innerHTML = `<span class="chip-label">Calculated minimum</span><span class="chip-val">${fmtMo(minPmt)}/mo</span>`;
+  }
+}
+
+function updateSidebarDebtChip() {
+  const total = loans.reduce((a, l) => a + effectiveLoanPayment(l), 0);
+  const el = document.getElementById('sidebar-total-pmt');
+  if (el) el.textContent = total > 0 ? fmtMo(total) + '/mo' : '—';
+}
+
+function renderAmortTabs() {
+  const c = document.getElementById('amort-tabs');
+  const tabs = [{ key: 'all', label: 'All loans' }]
+    .concat(loans.map(l => ({ key: l.id, label: l.name || 'Unnamed' })));
+  c.innerHTML = tabs.map(t =>
+    `<button class="ltab ${currentLoanTab === t.key ? 'active' : ''}"
+       onclick="setLoanTab('${t.key}',this)">${t.label}</button>`
+  ).join('');
+}
+
+// Loan input handlers
+function onLoanName(id, val) {
+  const l = loans.find(l => l.id === id);
+  if (l) l.name = val;
+  renderAmortTabs();
+  switchToCustom();
+}
+function onLoanBal(id, val) {
+  const l = loans.find(l => l.id === id);
+  if (l) {
+    l.bal = parseFloat(val) || 0;
+    // Reset custPmt so it recalculates from new balance
+    if (l.custPmt !== null) {
+      // Re-check if their custom pmt is still valid
+    }
+    updateLoanChip(l);
+  }
+  updateSidebarDebtChip();
+  switchToCustom(); update();
+}
+function onLoanRate(id, val) {
+  const l = loans.find(l => l.id === id);
+  if (l) { l.rate = parseFloat(val) || 0; updateLoanChip(l); }
+  updateSidebarDebtChip();
+  switchToCustom(); update();
+}
+function onLoanMonths(id, val) {
+  const l = loans.find(l => l.id === id);
+  if (l) { l.months = parseInt(val) || 1; updateLoanChip(l); }
+  updateSidebarDebtChip();
+  switchToCustom(); update();
+}
+function onLoanCustPmt(id, val) {
+  const l = loans.find(l => l.id === id);
+  if (!l) return;
+  const numVal = parseFloat(val);
+  if (val === '' || isNaN(numVal) || numVal <= 0) {
+    l.custPmt = null; // back to auto
+  } else {
+    l.custPmt = numVal;
+  }
+  updateLoanChip(l);
+  updateSidebarDebtChip();
+  switchToCustom(); update();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SCENARIO SWITCHING
+// ═══════════════════════════════════════════════════════════════════════
+function switchToCustom() {
+  if (currentScenario === 'custom') return;
+  currentScenario = 'custom';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const ct = document.querySelector('[data-scenario="custom"]');
+  if (ct) ct.classList.add('active');
+}
+
+function setScenario(s, el) {
+  currentScenario = s;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  if (s !== 'custom') {
+    const sc = scenarioDefaults[s];
+    setLoans(sc.loans); renderLoanInputs(); renderAmortTabs();
+    ['savings','invest','other','sal','raise','msave','ret'].forEach(k => {
+      const e = document.getElementById('s_' + k);
+      if (e) e.value = sc[k];
+    });
+  }
+  update();
+}
+
+function onSidebarInput() { switchToCustom(); update(); }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  GET PARAMS
+// ═══════════════════════════════════════════════════════════════════════
+function getParams() {
+  return {
+    loans:        loans.map(l => ({ ...l })),
+    savings:      parseFloat(document.getElementById('s_savings').value)      || 0,
+    invest:       parseFloat(document.getElementById('s_invest').value)       || 0,
+    other:        parseFloat(document.getElementById('s_other').value)        || 0,
+    sal:          parseFloat(document.getElementById('s_sal').value)          || 0,
+    raise:        parseFloat(document.getElementById('s_raise').value)        || 0,
+    msave:        parseFloat(document.getElementById('s_msave').value)        || 0,
+    ret:          parseFloat(document.getElementById('s_ret').value)          || 0,
+    internBonus:  parseFloat(document.getElementById('s_intern_bonus').value) || 0,
+    ftBonus:      parseFloat(document.getElementById('s_ft_bonus').value)     || 0,
+    tuition:      parseFloat(document.getElementById('s_tuition').value)      || 0,
+    // Total effective monthly payment (computed, not input)
+    get pmt() { return this.loans.reduce((a, l) => a + effectiveLoanPayment(l), 0); }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  FORMATTERS
+// ═══════════════════════════════════════════════════════════════════════
+function fmt(n) {
+  const abs = Math.abs(Math.round(n));
+  const s = abs >= 1000000 ? '$' + (abs / 1000000).toFixed(2) + 'M'
+          : abs >= 1000    ? '$' + abs.toLocaleString()
+          : '$' + abs;
+  return n < 0 ? '-' + s : s;
+}
+function fmtMo(n)  { return '$' + Math.round(Math.abs(n)).toLocaleString(); }
+function fmtK(n)   { return '$' + (Math.round(Math.abs(n) / 1000)).toLocaleString() + 'k'; }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  NET WORTH PROJECTION
+//  Returns: { nwArr, assArr, debtArr, yearlyData }
+//  yearlyData: array of 31 entries (year 0..30) with full breakdown
+// ═══════════════════════════════════════════════════════════════════════
+function projectNetWorth(p, extraPmt = 0) {
+  const inv_r = p.ret / 100 / 12;
+
+  // One-time bonuses: intern bonus + Deloitte tuition go to Year 0 assets.
+  // FT bonus goes to Year 1 (month 1 of year 1).
+  const yr0Bonuses = (p.internBonus || 0) + (p.tuition || 0);
+  const yr1Bonus   = (p.ftBonus || 0);
+
+  // Build loan state using EFFECTIVE payments
+  let loanState = p.loans
+    .filter(l => l.bal > 0 && l.months > 0)
+    .map(l => ({
+      bal:   l.bal,
+      mrate: l.rate / 100 / 12,
+      pmt:   effectiveLoanPayment(l),
+      id:    l.id,
+    }));
+
+  let curInvest = p.invest + p.savings + p.other + yr0Bonuses;
+  const debt0   = loanState.reduce((a, l) => a + l.bal, 0);
+
+  const yearlyData = [];
+  yearlyData.push({
+    year: 0, date: yearToDate(0),
+    nw:     Math.round(curInvest - debt0),
+    assets: Math.round(curInvest),
+    debt:   Math.round(debt0),
+    salary: Math.round(p.sal),
+    annualLoanPmt: 0,
+    annualSavings: Math.round(p.msave * 12),
+  });
+
+  const checkpoints = [0, 5, 10, 15, 20, 25, 30];
+  const nwArr = [], assArr = [], debtArr = [];
+  nwArr.push(Math.round(curInvest - debt0));
+  assArr.push(Math.round(curInvest));
+  debtArr.push(Math.round(debt0));
+
+  for (let y = 1; y <= 30; y++) {
+    let annualLoanPmt = 0;
+
+    for (let m = 0; m < 12; m++) {
+      // FT bonus: add at start of year 1 month 0
+      if (y === 1 && m === 0) curInvest += yr1Bonus;
+
+      // Distribute extra payment (avalanche: highest rate first)
+      const activeLoans = loanState.filter(l => l.bal > 0.01)
+        .sort((a, b) => b.mrate - a.mrate);
+      let extraLeft = extraPmt;
+
+      loanState = loanState.map(l => {
+        if (l.bal <= 0.01) return l;
+        const int   = l.bal * l.mrate;
+        // Is this the focus loan for extra payment?
+        const isFocus = activeLoans.length > 0 && l.id === activeLoans[0].id;
+        const extra   = (extraLeft > 0 && isFocus)
+                      ? Math.min(extraLeft, Math.max(0, l.bal + int - l.pmt)) : 0;
+        extraLeft    -= extra;
+        const totalPmt = Math.min(l.bal + int, l.pmt + extra);
+        const prin     = Math.max(0, totalPmt - int);
+        annualLoanPmt += totalPmt;
+        return { ...l, bal: Math.max(0, l.bal - prin) };
+      });
+
+      // Freed payments from paid-off loans → investments
+      const totalOrigPmt = loanState.reduce((a, l) => a + l.pmt, 0);
+      const stillPaying  = loanState.filter(l => l.bal > 0.01).reduce((a, l) => a + l.pmt, 0);
+      const freed        = totalOrigPmt - stillPaying;
+
+      curInvest = curInvest * (1 + inv_r) + p.msave + freed;
+    }
+
+    const debt   = Math.max(0, loanState.reduce((a, l) => a + l.bal, 0));
+    const salary = Math.round(p.sal * Math.pow(1 + p.raise / 100, y));
+
+    yearlyData.push({
+      year: y, date: yearToDate(y),
+      nw:     Math.round(curInvest - debt),
+      assets: Math.round(curInvest),
+      debt:   Math.round(debt),
+      salary,
+      annualLoanPmt: Math.round(annualLoanPmt),
+      annualSavings: Math.round(p.msave * 12),
+    });
+
+    if (checkpoints.includes(y)) {
+      nwArr.push(Math.round(curInvest - debt));
+      assArr.push(Math.round(curInvest));
+      debtArr.push(Math.round(debt));
+    }
+  }
+
+  return { nwArr, assArr, debtArr, yearlyData };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STRATEGY PAYOFF CALCULATION
+// ═══════════════════════════════════════════════════════════════════════
+function calcStrategyPayoff(loansIn, extraPmt, strategy) {
+  const active = loansIn.filter(l => l.bal > 0 && l.months > 0);
+  if (!active.length) return { months: 0, totalInterest: 0 };
+
+  let state = active.map(l => ({
+    ...l,
+    mrate:  l.rate / 100 / 12,
+    bal:    l.bal,
+    minPmt: effectiveLoanPayment(l),
+  }));
+
+  if (strategy === 'avalanche') state.sort((a, b) => b.rate - a.rate);
+  else if (strategy === 'snowball') state.sort((a, b) => a.bal - b.bal);
+
+  let month = 0, totalInterest = 0;
+  while (state.some(l => l.bal > 0.01) && month < 600) {
+    month++;
+    let extra = extraPmt;
+    state = state.map((l, idx) => {
+      if (l.bal <= 0.01) return l;
+      const int  = l.bal * l.mrate;
+      totalInterest += int;
+      const bonus      = (strategy !== 'minimum' && idx === 0) ? Math.min(extra, Math.max(0, l.bal + int - l.minPmt)) : 0;
+      extra           -= bonus;
+      const totalPmt   = Math.min(l.bal + int, l.minPmt + bonus);
+      const prin       = Math.max(0, totalPmt - int);
+      return { ...l, bal: Math.max(0, l.bal - prin) };
+    });
+  }
+  return { months: month, totalInterest: Math.round(totalInterest) };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  AMORTIZATION TABLE
+// ═══════════════════════════════════════════════════════════════════════
+function buildLoanSchedule(p, loanKey, extraPmt = 0) {
+  const sel = loanKey === 'all'
+    ? p.loans.filter(l => l.bal > 0 && l.months > 0)
+    : p.loans.filter(l => l.id === loanKey && l.bal > 0 && l.months > 0);
+  if (!sel.length) return [];
+
+  let state = sel.map(l => ({
+    bal:   l.bal,
+    mrate: l.rate / 100 / 12,
+    pmt:   effectiveLoanPayment(l) + (loanKey !== 'all' ? extraPmt : extraPmt / sel.length),
+  }));
+
+  const rows = []; let month = 0;
+  while (state.some(l => l.bal > 0.01) && month < 480) {
+    month++;
+    let totPmt = 0, totInt = 0, totPrin = 0;
+    state = state.map(l => {
+      if (l.bal <= 0.01) return l;
+      const int       = l.bal * l.mrate;
+      const actualPmt = Math.min(l.pmt, l.bal + int);
+      const prin      = Math.max(0, actualPmt - int);
+      totInt  += int;
+      totPrin += prin;
+      totPmt  += actualPmt;
+      return { ...l, bal: Math.max(0, l.bal - prin) };
+    });
+    const rem     = state.reduce((a, l) => a + l.bal, 0);
+    const calDate = monthToDate(month);
+    const calYr   = monthToYear(month);
+    let note = '';
+    if (month === 1)        note = 'First payment';
+    else if (rem < 0.5)     note = '✓ PAID OFF';
+    else if (month % 12 === 0) note = calYr + ' complete';
+    rows.push({
+      month, label: calDate,
+      payment:   Math.round(totPmt),
+      principal: Math.round(totPrin),
+      interest:  Math.round(totInt),
+      balance:   Math.max(0, Math.round(rem)),
+      note, isMilestone: note.length > 0
+    });
+    if (rem < 0.5) break;
+  }
+  return rows;
+}
+
+function setLoanTab(t, el) {
+  currentLoanTab = t;
+  document.querySelectorAll('.ltab').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  renderLoanTable(lastParams);
+}
+
+function renderLoanTable(p) {
+  const rows  = buildLoanSchedule(p, currentLoanTab);
+  const tbody = document.getElementById('loanBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">No active balance for this loan.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr class="${r.isMilestone ? 'milestone-row' : ''}">
+      <td>${r.label}</td>
+      <td class="paid-col">${fmtMo(r.payment)}</td>
+      <td class="prin-col">${fmtMo(r.principal)}</td>
+      <td class="int-col">${fmtMo(r.interest)}</td>
+      <td class="bal-col">${fmtMo(r.balance)}</td>
+      <td class="badge-col">${r.note}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  YEAR-BY-YEAR TABLE & CHARTS
+// ═══════════════════════════════════════════════════════════════════════
+// Build 360-month detail — each month has take-home, loan pmt, savings, invest, debt, NW
+function buildMonthlyBreakdown(p) {
+  const inv_r      = p.ret / 100 / 12;
+  const yr0Bonuses = (p.internBonus || 0) + (p.tuition || 0);
+  const yr1Bonus   = (p.ftBonus || 0);
+  let curInvest    = p.invest + p.savings + p.other + yr0Bonuses;
+  let loanState    = p.loans
+    .filter(l => l.bal > 0 && l.months > 0)
+    .map(l => ({ bal: l.bal, mrate: l.rate / 100 / 12, pmt: effectiveLoanPayment(l), id: l.id }));
+
+  const months = [];
+  for (let m = 1; m <= 360; m++) {
+    if (m === 1) curInvest += yr1Bonus;
+    const y          = Math.ceil(m / 12);
+    const annualSal  = p.sal * Math.pow(1 + p.raise / 100, y - 1);
+    const taxRate    = estimateTaxRate(annualSal);
+    const monthlyTH  = (annualSal / 12) * (1 - taxRate);
+
+    const totalOrigPmt = loanState.reduce((a, l) => a + l.pmt, 0);
+    let monthLoanPmt   = 0;
+    loanState = loanState.map(l => {
+      if (l.bal <= 0.01) return l;
+      const int    = l.bal * l.mrate;
+      const actual = Math.min(l.bal + int, l.pmt);
+      const prin   = Math.max(0, actual - int);
+      monthLoanPmt += actual;
+      return { ...l, bal: Math.max(0, l.bal - prin) };
+    });
+
+    const stillPaying = loanState.filter(l => l.bal > 0.01).reduce((a, l) => a + l.pmt, 0);
+    const freed    = totalOrigPmt - stillPaying;
+    const savings  = p.msave + freed;
+    curInvest      = curInvest * (1 + inv_r) + savings;
+    const debt     = Math.max(0, loanState.reduce((a, l) => a + l.bal, 0));
+
+    months.push({
+      month:      m,
+      year:       y,
+      moInYear:   ((m - 1) % 12) + 1,
+      date:       monthToDate(m),
+      monthlyTH:  Math.round(monthlyTH),
+      loanPmt:    Math.round(monthLoanPmt),
+      freed:      Math.round(freed),
+      savings:    Math.round(savings),
+      investBal:  Math.round(curInvest),
+      debt:       Math.round(debt),
+      nw:         Math.round(curInvest - debt),
+    });
+  }
+  return months;
+}
+
+// Build annual cash flow rows (1 per year) — consistent with projectNetWorth
+function buildYearlyCashFlows(p) {
+  const inv_r      = p.ret / 100 / 12;
+  const yr0Bonuses = (p.internBonus || 0) + (p.tuition || 0);
+  const yr1Bonus   = (p.ftBonus || 0);
+
+  let curInvest = p.invest + p.savings + p.other + yr0Bonuses;
+  let loanState = p.loans
+    .filter(l => l.bal > 0 && l.months > 0)
+    .map(l => ({ bal: l.bal, mrate: l.rate / 100 / 12, pmt: effectiveLoanPayment(l), id: l.id }));
+
+  const rows = [];
+
+  for (let y = 1; y <= 30; y++) {
+    const annualSal  = p.sal * Math.pow(1 + p.raise / 100, y - 1);
+    const taxRate    = estimateTaxRate(annualSal);
+    const monthlyTH  = (annualSal / 12) * (1 - taxRate);
+
+    let annualLoanPmt  = 0;
+    let annualFreed    = 0;
+    let annualSavings  = 0;
+
+    for (let m = 0; m < 12; m++) {
+      const globalMonth = (y - 1) * 12 + m + 1;
+      if (globalMonth === 1) curInvest += yr1Bonus;
+
+      const totalOrigPmt = loanState.reduce((a, l) => a + l.pmt, 0);
+      loanState = loanState.map(l => {
+        if (l.bal <= 0.01) return l;
+        const int    = l.bal * l.mrate;
+        const actual = Math.min(l.bal + int, l.pmt);
+        const prin   = Math.max(0, actual - int);
+        annualLoanPmt += actual;
+        return { ...l, bal: Math.max(0, l.bal - prin) };
+      });
+
+      const stillPaying = loanState.filter(l => l.bal > 0.01).reduce((a, l) => a + l.pmt, 0);
+      const freed       = totalOrigPmt - stillPaying;
+      annualFreed   += freed;
+      annualSavings += p.msave + freed;
+      curInvest      = curInvest * (1 + inv_r) + p.msave + freed;
+    }
+
+    const debtEnd = Math.max(0, loanState.reduce((a, l) => a + l.bal, 0));
+    const startDate = yearToDate(y - 1);
+    const endDate   = yearToDate(y);
+
+    rows.push({
+      year:         y,
+      period:       startDate + ' → ' + endDate,
+      annualSal:    Math.round(annualSal),
+      annualTH:     Math.round(monthlyTH * 12),
+      annualLoanPmt: Math.round(annualLoanPmt),
+      annualFreed:  Math.round(annualFreed),
+      annualSavings: Math.round(annualSavings),
+      investEnd:    Math.round(curInvest),
+      debtEnd:      Math.round(debtEnd),
+      nwEnd:        Math.round(curInvest - debtEnd),
+    });
+  }
+  return rows;
+}
+
+function toggleYearExpand(year, rowEl) {
+  const isExpanded = rowEl.classList.contains('expanded');
+  rowEl.classList.toggle('expanded', !isExpanded);
+  for (let m = 1; m <= 12; m++) {
+    const mo = document.getElementById('mo-yr' + year + '-m' + m);
+    if (mo) mo.style.display = isExpanded ? 'none' : '';
+  }
+}
+
+function renderYearlyTable(p, yearlyData) {
+  const tbody = document.getElementById('yearlyBody');
+  if (!tbody) return;
+
+  const cfRows = buildYearlyCashFlows(p);
+  const moData = buildMonthlyBreakdown(p);
+  const yr30nw = cfRows[29].nwEnd;
+
+  let html = '';
+  cfRows.forEach(row => {
+    const isMilestone = row.year % 5 === 0;
+    const rowClass    = (isMilestone ? 'yr5-row ' : '') + 'yr-row';
+    const nwClass     = row.nwEnd >= 0 ? 'nw-pos' : 'nw-neg';
+    const pct         = yr30nw > 0 ? Math.max(0, Math.min(100, row.nwEnd / yr30nw * 100)).toFixed(0) : 0;
+    const debtCell    = row.debtEnd > 0
+      ? `<td class="debt-col">${fmt(row.debtEnd)}</td>`
+      : `<td style="color:var(--green);font-weight:700">✓ DEBT FREE</td>`;
+    const freedCell   = row.annualFreed > 50
+      ? `<td style="color:var(--green);font-size:11px">+${fmt(row.annualFreed)}</td>`
+      : `<td style="color:var(--dim)">—</td>`;
+
+    html += `<tr class="${rowClass}" onclick="toggleYearExpand(${row.year}, this)" title="Click to expand monthly breakdown">
+      <td style="font-weight:700;color:var(--accent)"><span class="yr-expand-indicator">▶</span>Yr ${row.year}</td>
+      <td style="text-align:left;color:var(--muted);font-size:10px">${row.period}</td>
+      <td class="sal-col">${fmt(row.annualSal)}</td>
+      <td style="color:var(--text)">${fmt(row.annualTH)}</td>
+      <td style="color:var(--purple)">${row.annualLoanPmt > 0 ? fmt(row.annualLoanPmt) : '<span style="color:var(--green)">✓ Free</span>'}</td>
+      <td>${fmt(row.annualSavings)}</td>
+      ${freedCell}
+      <td class="assets-col">${fmt(row.investEnd)}</td>
+      ${debtCell}
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span class="${nwClass}" style="font-weight:700;min-width:70px">${fmt(row.nwEnd)}</span>
+          <div style="flex:1;min-width:40px;background:var(--surface2);border-radius:3px;height:5px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${row.nwEnd>=0?'#15803d':'#b91c1c'};border-radius:3px"></div>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+
+    // 12 monthly sub-rows (hidden until user clicks year row)
+    const yearMonths = moData.filter(mo => mo.year === row.year);
+    yearMonths.forEach((mo, idx) => {
+      const isLast = idx === 11;
+      html += `<tr class="mo-row${isLast ? ' mo-last' : ''}" id="mo-yr${row.year}-m${idx + 1}" style="display:none">
+        <td>↳ Mo ${(row.year - 1) * 12 + idx + 1}</td>
+        <td style="text-align:left;color:var(--text);font-size:10px">${mo.date}</td>
+        <td style="color:var(--muted)">—</td>
+        <td style="color:var(--text)">${fmtMo(mo.monthlyTH)}</td>
+        <td style="color:var(--purple)">${mo.loanPmt > 0 ? fmtMo(mo.loanPmt) : '<span style="color:var(--green)">✓</span>'}</td>
+        <td>${fmtMo(mo.savings)}</td>
+        <td>${mo.freed > 5 ? '<span style="color:var(--green)">+' + fmtMo(mo.freed) + '</span>' : '<span style="color:var(--dim)">—</span>'}</td>
+        <td>${fmt(mo.investBal)}</td>
+        <td>${mo.debt > 0 ? fmt(mo.debt) : '<span style="color:var(--green)">✓</span>'}</td>
+        <td style="color:${mo.nw >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${fmt(mo.nw)}</td>
+      </tr>`;
+    });
+  });
+
+  tbody.innerHTML = html;
+
+  // ── KPIs ──
+  const r10  = cfRows[9],  r20 = cfRows[19], r30 = cfRows[29];
+  const dfYr = cfRows.find(r => r.debtEnd < 1);
+  const totLoanPmt = cfRows.reduce((a, r) => a + r.annualLoanPmt, 0);
+
+  document.getElementById('yearly-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Net worth at Year 10</div><div class="kpi-value ${r10.nwEnd<0?'neg':'pos'}">${fmt(r10.nwEnd)}</div><div class="kpi-sub">${r10.period.split('→')[1]?.trim()}</div></div>
+    <div class="kpi"><div class="kpi-label">Net worth at Year 30</div><div class="kpi-value pos">${fmt(r30.nwEnd)}</div><div class="kpi-sub">${r30.period.split('→')[1]?.trim()}</div></div>
+    <div class="kpi"><div class="kpi-label">Debt-free year</div><div class="kpi-value pos" style="font-size:16px">${dfYr ? 'Year ' + dfYr.year : 'Beyond 30yr'}</div><div class="kpi-sub">${dfYr ? dfYr.period : 'Extend your plan'}</div></div>
+    <div class="kpi"><div class="kpi-label">Total loan payments (30yr)</div><div class="kpi-value neg" style="font-size:16px">${fmt(totLoanPmt)}</div><div class="kpi-sub">cumulative debt service</div></div>`;
+}
+
+function renderYearlyCharts(yearlyData) {
+  const p      = lastParams;
+  const cfRows = buildYearlyCashFlows(p);
+  const labels = cfRows.map(r => 'Yr ' + r.year);
+  const nwData  = cfRows.map(r => r.nwEnd);
+  const assData = cfRows.map(r => r.investEnd);
+  const dbtData = cfRows.map(r => r.debtEnd);
+
+  if (yearlyChart) yearlyChart.destroy();
+  yearlyChart = new Chart(document.getElementById('yearlyChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Net Worth', data: nwData,  borderColor: '#15803d', backgroundColor: 'rgba(21,128,61,0.08)', tension: 0.3, fill: true,  pointRadius: 3, pointBackgroundColor: '#15803d', borderWidth: 2 },
+      { label: 'Assets',   data: assData, borderColor: '#1e40af', backgroundColor: 'transparent',          tension: 0.3, fill: false, pointRadius: 0, borderDash: [5,3], borderWidth: 1.5 },
+      { label: 'Debt',     data: dbtData, borderColor: '#b91c1c', backgroundColor: 'transparent',          tension: 0.3, fill: false, pointRadius: 0, borderDash: [3,3], borderWidth: 1.5 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { color: C.ticks, font: { size: 10, family: 'DM Mono' }, boxWidth: 9, boxHeight: 9 }},
+        tooltip: {
+          backgroundColor: '#fff', borderColor: 'rgba(0,0,0,0.1)', borderWidth: 1,
+          titleColor: '#1a1918', bodyColor: '#555',
+          titleFont: { family: 'Syne', size: 12, weight: '600' }, bodyFont: { family: 'DM Mono', size: 11 }, padding: 10,
+          callbacks: {
+            title: ctx => labels[ctx[0].dataIndex],
+            label: ctx => `  ${ctx.dataset.label}: ${fmt(ctx.raw)}`,
+            afterBody: ctx => {
+              const r = cfRows[ctx[0].dataIndex];
+              return [`  ────────────────`, `  Salary: ${fmt(r.annualSal)}/yr`, `  Loan pmts: ${r.annualLoanPmt > 0 ? fmt(r.annualLoanPmt) + '/yr' : '✓ Free'}`, `  Take-home: ~${fmt(r.annualTH)}/yr`];
+            }
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: v => fmt(v), color: C.ticks, font: C.font, maxTicksLimit: 7 }, grid: { color: C.grid }, border: { color: 'transparent' } },
+        x: { ticks: { color: C.ticks, font: { size: 9, family: 'DM Mono' }, maxTicksLimit: 16 }, grid: { display: false }, border: { color: C.grid } }
+      }
+    }
+  });
+
+  // Cash composition stacked bar: take-home, loan payments, savings
+  if (salaryChart) salaryChart.destroy();
+  salaryChart = new Chart(document.getElementById('salaryChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Est. Take-Home', data: cfRows.map(r => r.annualTH),       backgroundColor: 'rgba(21,128,61,0.55)',  borderRadius: 2 },
+      { label: 'Loan Payments',  data: cfRows.map(r => r.annualLoanPmt),  backgroundColor: 'rgba(107,33,168,0.55)', borderRadius: 2 },
+      { label: 'Savings',        data: cfRows.map(r => r.annualSavings),  backgroundColor: 'rgba(30,64,175,0.5)',   borderRadius: 2 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { color: C.ticks, font: { size: 10, family: 'DM Mono' }, boxWidth: 9, boxHeight: 9 }},
+        tooltip: {
+          backgroundColor: '#fff', borderColor: 'rgba(0,0,0,0.1)', borderWidth: 1,
+          titleColor: '#1a1918', bodyColor: '#555',
+          titleFont: { family: 'Syne', size: 12, weight: '600' }, bodyFont: { family: 'DM Mono', size: 11 }, padding: 10,
+        }
+      },
+      scales: {
+        x: { stacked: false, ticks: { color: C.ticks, font: { size: 9, family: 'DM Mono' }, maxTicksLimit: 16 }, grid: { display: false } },
+        y: { ticks: { callback: v => fmtK(v), color: C.ticks, font: C.font, maxTicksLimit: 6 }, grid: { color: C.grid }, border: { color: 'transparent' } }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  OVERVIEW RENDER
+// ═══════════════════════════════════════════════════════════════════════
+function renderScenarioBox(p) {
+  const sc = currentScenario, sd = scenarioDefaults[sc] || {};
+  const totalDebt   = p.loans.reduce((a, l) => a + l.bal, 0);
+  const totalPmt    = p.pmt;
+  const totalAssets = p.savings + p.invest + p.other;
+  const nw          = totalAssets - totalDebt;
+  const bonusTotal  = (p.internBonus || 0) + (p.ftBonus || 0) + (p.tuition || 0);
+
+  const loanRows = p.loans.map(l => {
+    const effPmt  = effectiveLoanPayment(l);
+    const minPmt  = calcLoanPayment(l);
+    const isExtra = l.custPmt !== null && effPmt > minPmt + 0.5;
+    return `<div class="scenario-row">
+      <span class="skey">${l.name} · ${l.months}mo left</span>
+      <span class="sval bad">${fmt(l.bal)} @ ${l.rate}% = ${fmtMo(effPmt)}/mo${isExtra ? ' ↑' : ''}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('scenario-box').innerHTML = `
+    <h3>${sd.label || 'Custom'}</h3>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:11px;line-height:1.5">${sd.desc || 'Your custom inputs.'}</div>
+    ${loanRows}
+    <div class="scenario-row"><span class="skey">Total debt service</span><span class="sval bad">${fmtMo(totalPmt)}/mo</span></div>
+    <div class="scenario-row"><span class="skey">Salary</span><span class="sval good">${fmt(p.sal)}/yr</span></div>
+    <div class="scenario-row"><span class="skey">Annual raise</span><span class="sval">${p.raise}%</span></div>
+    <div class="scenario-row"><span class="skey">Monthly savings</span><span class="sval">${fmt(p.msave)}/mo</span></div>
+    <div class="scenario-row"><span class="skey">Return rate</span><span class="sval">${p.ret}%/yr</span></div>
+    ${bonusTotal > 0 ? `<div class="scenario-row"><span class="skey">One-time bonuses</span><span class="sval good">+${fmt(bonusTotal)}</span></div>` : ''}
+    <div class="scenario-row"><span class="skey">Total debt</span><span class="sval bad">${fmt(totalDebt)}</span></div>
+    <div class="scenario-row"><span class="skey">Total assets</span><span class="sval good">${fmt(totalAssets)}</span></div>
+    <div class="scenario-row"><span class="skey">Net worth today</span><span class="sval ${nw >= 0 ? 'good' : 'bad'}">${fmt(nw)}</span></div>`;
+}
+
+function renderMilestones(p, nwArr) {
+  const rows     = buildLoanSchedule(p, 'all');
+  const payoffMo = rows.length ? rows[rows.length - 1].month : null;
+  const payoffYrs = payoffMo ? (payoffMo / 12).toFixed(1) : 'N/A';
+  const beIdx    = nwArr.findIndex(v => v > 0);
+  const beYr     = beIdx >= 0 ? [0, 5, 10, 15, 20, 25, 30][beIdx] : null;
+  const totInt   = rows.reduce((a, r) => a + r.interest, 0);
+  document.getElementById('milestones').innerHTML = `
+    <div class="milestone-card"><div class="ms-label">Last loan paid off</div><div class="ms-value">${payoffMo ? monthToDate(payoffMo) : 'Never'}</div><div class="ms-sub">${payoffMo ? payoffYrs + ' years · ' + payoffMo + ' payments' : 'Increase payment'}</div></div>
+    <div class="milestone-card"><div class="ms-label">Break even (NW&gt;$0)</div><div class="ms-value">${beYr !== null ? 'Year ' + beYr : 'Beyond 30yr'}</div><div class="ms-sub">assets beat all debt</div></div>
+    <div class="milestone-card"><div class="ms-label">Total interest owed</div><div class="ms-value">${fmt(totInt)}</div><div class="ms-sub">remaining cost of debt</div></div>
+    <div class="milestone-card"><div class="ms-label">Net worth at 10yr</div><div class="ms-value">${fmt(nwArr[2])}</div><div class="ms-sub">${monthToDate(120)}</div></div>
+    <div class="milestone-card"><div class="ms-label">Net worth at 20yr</div><div class="ms-value">${fmt(nwArr[4])}</div><div class="ms-sub">${monthToDate(240)}</div></div>
+    <div class="milestone-card"><div class="ms-label">Net worth at 30yr</div><div class="ms-value">${fmt(nwArr[6])}</div><div class="ms-sub">${monthToDate(360)}</div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  KPI BREAKDOWN HELPER
+// ═══════════════════════════════════════════════════════════════════════
+function loanBalancesAtYear(p, year) {
+  // Returns each loan's remaining balance after `year` years of payments
+  return p.loans.map(l => {
+    let bal = l.bal;
+    const mrate = l.rate / 100 / 12;
+    const pmt   = effectiveLoanPayment(l);
+    for (let m = 0; m < year * 12; m++) {
+      if (bal <= 0.01) { bal = 0; break; }
+      const int  = bal * mrate;
+      const prin = Math.max(0, Math.min(bal, pmt - int));
+      bal = Math.max(0, bal - prin);
+    }
+    return { name: l.name, bal: Math.round(bal) };
+  });
+}
+
+function buildKpiBreakdown(p, yearlyData, year) {
+  const isNow = year === 0;
+  const row   = yearlyData[year];
+
+  // Assets breakdown
+  const bonusTotal = (p.internBonus || 0) + (p.tuition || 0) + (year >= 1 ? (p.ftBonus || 0) : 0);
+  const assetRows = isNow
+    ? [
+        ['Savings / checking', p.savings],
+        ['401k / investments', p.invest],
+        ['Other assets',       p.other],
+        ...(bonusTotal > 0 ? [['Bonuses (PV)', bonusTotal]] : []),
+      ]
+    : [['Total assets', row.assets]]; // at future year use the projected lump sum
+
+  // Debt breakdown
+  const debtAtYear = isNow
+    ? p.loans.filter(l => l.bal > 0).map(l => [l.name, -l.bal])
+    : loanBalancesAtYear(p, year).filter(l => l.bal > 0).map(l => [l.name, -l.bal]);
+
+  const totalAssets = isNow ? assetRows.reduce((a, r) => a + r[1], 0) : row.assets;
+  const totalDebt   = isNow ? debtAtYear.reduce((a, r) => a + Math.abs(r[1]), 0) : row.debt;
+  const nw          = row.nw;
+
+  const rowHtml = (label, val) => {
+    const isNeg = val < 0;
+    return `<div class="kbd-row"><span class="kbd-label">${label}</span><span class="kbd-val ${isNeg ? 'neg' : 'pos'}">${val >= 0 ? '+' : ''}${fmt(val)}</span></div>`;
+  };
+
+  return `<div class="kpi-breakdown">
+    ${assetRows.map(([k,v]) => rowHtml(k, v)).join('')}
+    <div class="kbd-divider"></div>
+    ${debtAtYear.map(([k,v]) => rowHtml(k, v)).join('')}
+    <div class="kbd-total kbd-row"><span class="kbd-label" style="font-weight:600;color:var(--text)">Net Worth</span><span class="kbd-val ${nw>=0?'pos':'neg'}" style="font-size:11px;font-weight:700">${fmt(nw)}</span></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MAIN UPDATE
+// ═══════════════════════════════════════════════════════════════════════
+function update() {
+  const p = getParams(); lastParams = p;
+  const { nwArr, assArr, debtArr, yearlyData } = projectNetWorth(p);
+  const totalDebt = p.loans.reduce((a, l) => a + l.bal, 0);
+  const nw0 = nwArr[0], nw10 = nwArr[2], nw30 = nwArr[6];
+
+  // ── KPIs with breakdown ──
+  const bd0  = buildKpiBreakdown(p, yearlyData, 0);
+  const bd10 = buildKpiBreakdown(p, yearlyData, 10);
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi">
+      <div class="kpi-label">Net worth today</div>
+      <div class="kpi-value ${nw0<0?'neg':'pos'}">${fmt(nw0)}</div>
+      <div class="kpi-sub">assets minus all debt</div>
+      ${bd0}
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">In 10 years</div>
+      <div class="kpi-value ${nw10<0?'neg':'pos'}">${fmt(nw10)}</div>
+      <div class="kpi-sub">${monthToDate(120)}</div>
+      ${bd10}
+    </div>
+    <div class="kpi"><div class="kpi-label">In 30 years</div><div class="kpi-value pos">${fmt(nw30)}</div><div class="kpi-sub">${monthToDate(360)}</div></div>
+    <div class="kpi"><div class="kpi-label">Monthly debt service</div><div class="kpi-value neg">${fmtMo(p.pmt)}</div><div class="kpi-sub">${p.loans.length} loan${p.loans.length!==1?'s':''} · per your inputs</div></div>`;
+
+  renderMilestones(p, nwArr);
+  renderScenarioBox(p);
+  renderLoanTable(p);
+  renderAssumptions(p);
+
+  // ── Main chart: all 31 yearly data points + rich hover tooltip ──
+  const yrLabels = yearlyData.map(r => r.year === 0 ? 'Now' : 'Yr ' + r.year);
+  const yrNW     = yearlyData.map(r => r.nw);
+  const yrAss    = yearlyData.map(r => r.assets);
+  const yrDebt   = yearlyData.map(r => r.debt);
+
+  if (mainChart) mainChart.destroy();
+  mainChart = new Chart(document.getElementById('mainChart'), {
+    type: 'line',
+    data: { labels: yrLabels, datasets: [
+      { label:'Net Worth', data:yrNW,   borderColor:'#15803d', backgroundColor:'rgba(21,128,61,0.07)', tension:0.35, fill:true,  pointRadius:2, pointHoverRadius:6, pointBackgroundColor:'#15803d', borderWidth:2 },
+      { label:'Assets',   data:yrAss,  borderColor:'#1e40af', backgroundColor:'transparent',          tension:0.35, fill:false, pointRadius:0, pointHoverRadius:5, pointBackgroundColor:'#1e40af', borderDash:[5,3], borderWidth:1.5 },
+      { label:'Debt',     data:yrDebt, borderColor:'#b91c1c', backgroundColor:'transparent',          tension:0.35, fill:false, pointRadius:0, pointHoverRadius:5, pointBackgroundColor:'#b91c1c', borderDash:[3,3], borderWidth:1.5 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#fff',
+          borderColor: 'rgba(0,0,0,0.12)',
+          borderWidth: 1,
+          titleColor: '#1a1918',
+          bodyColor: '#555',
+          titleFont: { family: 'Syne', size: 12, weight: '600' },
+          bodyFont:  { family: 'DM Mono', size: 11 },
+          padding: 12,
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => {
+              const icons = ['▲ Net Worth','  Assets','▼ Debt'];
+              return `  ${icons[ctx.datasetIndex]}: ${fmt(ctx.raw)}`;
+            },
+            afterBody: ctx => {
+              const yr  = ctx[0].dataIndex;
+              const row = yearlyData[yr];
+              return [`  ─────────────────`, `  Salary: ${fmt(row.salary)}/yr`, `  Loan payments: ${row.annualLoanPmt > 0 ? fmt(row.annualLoanPmt) : '—'}/yr`];
+            },
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: { callback: v => fmt(v), color: C.ticks, font: C.font, maxTicksLimit: 7 },
+          grid: { color: C.grid }, border: { color: 'transparent' }
+        },
+        x: {
+          ticks: {
+            color: C.ticks, font: { size: 10, family: 'DM Mono' },
+            maxTicksLimit: 16,
+            callback: (val, idx) => {
+              // Show every 5 years as label, all years as ticks
+              return yearlyData[idx].year % 5 === 0 ? yrLabels[idx] : '';
+            }
+          },
+          grid: { display: false }, border: { color: C.grid }
+        }
+      }
+    }
+  });
+
+  // Debt by loan chart
+  const dLabels = ['Now'];
+  const lLines  = p.loans.map(() => []);
+  let runState  = p.loans.map(l => ({ bal: l.bal, mrate: l.rate/100/12, pmt: effectiveLoanPayment(l) }));
+  p.loans.forEach((_, i) => lLines[i].push(Math.round(runState[i].bal)));
+  for (let y = 1; y <= 30; y++) {
+    for (let m = 0; m < 12; m++) {
+      runState = runState.map(l => {
+        if (l.bal <= 0.01) return l;
+        const int  = l.bal * l.mrate;
+        const prin = Math.max(0, Math.min(l.bal, l.pmt - int));
+        return { ...l, bal: Math.max(0, l.bal - prin) };
+      });
+    }
+    if (y % 5 === 0) {
+      dLabels.push('Yr ' + y);
+      p.loans.forEach((_, i) => lLines[i].push(Math.round(runState[i].bal)));
+    }
+  }
+  if (debtChart) debtChart.destroy();
+  debtChart = new Chart(document.getElementById('debtChart'), {
+    type: 'bar',
+    data: { labels: dLabels, datasets: p.loans.map((l, i) => ({
+      label: l.name || 'Loan ' + (i+1),
+      data: lLines[i],
+      backgroundColor: LOAN_COLORS[i % LOAN_COLORS.length],
+      borderRadius: 3,
+    }))},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, labels:{ color:C.ticks, font:{size:10,family:'DM Mono'}, boxWidth:9, boxHeight:9 }}},
+      scales:{
+        x:{ stacked:true, ticks:{color:C.ticks,font:{size:10,family:'DM Mono'}}, grid:{display:false} },
+        y:{ stacked:true, ticks:{callback:v=>fmt(v),color:C.ticks,font:{size:10,family:'DM Mono'}}, grid:{color:C.grid}, border:{color:'transparent'} }
+      }
+    }
+  });
+
+  // Update other active views
+  if (currentView === 'yearly')    { renderYearlyTable(p, yearlyData); renderYearlyCharts(yearlyData); }
+  if (currentView === 'cashflows') renderCashFlows();
+  if (currentView === 'debt')      updateDebt();
+  if (currentView === 'compare')   updateCompare();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DEBT PAYDOWN VIEW
+// ═══════════════════════════════════════════════════════════════════════
+function estimateTaxRate(sal) {
+  if (sal < 50000)  return 0.22;
+  if (sal < 80000)  return 0.26;
+  if (sal < 120000) return 0.30;
+  if (sal < 180000) return 0.33;
+  return 0.36;
+}
+
+function updateDebt() {
+  const p        = getParams();
+  const rent     = parseFloat(document.getElementById('d_rent').value)         || 0;
+  const otherExp = parseFloat(document.getElementById('d_expenses').value)     || 0;
+  const rentIncr = parseFloat(document.getElementById('d_rent_increase').value)|| 0;
+  const extraPmt = parseFloat(document.getElementById('d_extra').value)        || 0;
+
+  const taxRate   = estimateTaxRate(p.sal);
+  const monthlyTH = p.sal / 12 * (1 - taxRate);
+  const totalMinPmt = p.pmt;
+  const remaining   = monthlyTH - rent - otherExp - totalMinPmt;
+
+  // Cash flow bars
+  const barMax = monthlyTH * 1.05;
+  const pBar = (v, color) =>
+    `<div class="cf-bar" style="width:${Math.min(100, v/barMax*100).toFixed(1)}%;background:${color}"></div>`;
+  document.getElementById('cf-bar').innerHTML = `
+    <div class="cf-row"><span class="cf-label">Monthly take-home</span><div class="cf-bar-wrap">${pBar(monthlyTH,'#15803d')}</div><span class="cf-amt" style="color:var(--green)">${fmtMo(monthlyTH)}</span></div>
+    <div class="cf-row"><span class="cf-label">Rent</span><div class="cf-bar-wrap">${pBar(rent,'#b91c1c')}</div><span class="cf-amt" style="color:var(--red)">-${fmtMo(rent)}</span></div>
+    <div class="cf-row"><span class="cf-label">Other expenses</span><div class="cf-bar-wrap">${pBar(otherExp,'#b45309')}</div><span class="cf-amt" style="color:var(--amber)">-${fmtMo(otherExp)}</span></div>
+    <div class="cf-row"><span class="cf-label">Loan payments</span><div class="cf-bar-wrap">${pBar(totalMinPmt,'#7c3aed')}</div><span class="cf-amt" style="color:var(--purple)">-${fmtMo(totalMinPmt)}</span></div>
+    <div class="cf-row" style="border-top:1px solid var(--border);padding-top:7px;margin-top:3px">
+      <span class="cf-label" style="font-weight:600;color:var(--text)">Remaining (savings)</span>
+      <div class="cf-bar-wrap">${pBar(Math.max(0,remaining), remaining>=1500?'#15803d':remaining>=0?'#b45309':'#b91c1c')}</div>
+      <span class="cf-amt" style="color:${remaining>=1500?'var(--green)':remaining>=0?'var(--amber)':'var(--red)'};font-weight:600">${remaining>=0?fmtMo(remaining):'-'+fmtMo(Math.abs(remaining))}</span>
+    </div>`;
+
+  const badge = remaining >= 1500 ? ['Comfortable ✓','stress-ok']
+              : remaining >= 500  ? ['Tight ⚠','stress-warn']
+              : remaining >= 0    ? ['Stretched ⚡','stress-warn']
+              : ['Underwater ✗','stress-bad'];
+  const sb = document.getElementById('cf-stress-badge');
+  sb.className = 'stress-badge ' + badge[1];
+  sb.textContent = badge[0];
+
+  // Loan payoff cards
+  const cards = document.getElementById('debt-loan-cards');
+  cards.innerHTML = '';
+  p.loans.filter(l => l.bal > 0).forEach((l, i) => {
+    const color     = LOAN_COLORS[i % LOAN_COLORS.length];
+    const minPmt    = calcLoanPayment(l);
+    const effPmt    = effectiveLoanPayment(l);
+    const effMo     = effectivePayoffMonths(l);
+    const totPayoff = effectiveTotalPayoff(l);
+    const totInt    = effectiveRemainingInterest(l);
+    const payDate   = isFinite(effMo) ? monthToDate(effMo) : '∞';
+    const rateClass = l.rate < 6 ? 'rate-low' : l.rate < 15 ? 'rate-mid' : 'rate-high';
+    const isCustom  = l.custPmt !== null;
+    const div = document.createElement('div');
+    div.className = 'loan-payoff-card';
+    div.innerHTML = `
+      <div class="lpc-header">
+        <div class="lpc-dot" style="background:${color}"></div>
+        <span class="lpc-name">${l.name}</span>
+        <span class="lpc-rate-badge ${rateClass}">${l.rate}% APR</span>
+        ${isCustom ? `<span style="font-size:9px;padding:2px 7px;border-radius:99px;background:var(--green-dim);color:var(--green);font-weight:600">custom pmt</span>` : ''}
+      </div>
+      <div class="lpc-stats">
+        <div class="lpc-stat"><div class="lpc-stat-label">Balance today</div><div class="lpc-stat-val">${fmt(l.bal)}</div></div>
+        <div class="lpc-stat"><div class="lpc-stat-label">${isCustom ? 'Your payment' : 'Min payment'}</div><div class="lpc-stat-val">${fmtMo(effPmt)}</div></div>
+        <div class="lpc-stat"><div class="lpc-stat-label">Paid off</div><div class="lpc-stat-val" style="font-size:12px">${payDate}</div></div>
+        <div class="lpc-stat"><div class="lpc-stat-label">Months left</div><div class="lpc-stat-val">${isFinite(effMo) ? effMo : '∞'}</div></div>
+      </div>
+      ${isCustom && effPmt > minPmt + 0.5 ? `
+        <div style="font-size:10px;padding:5px 9px;background:var(--green-dim);border-radius:6px;color:var(--green)">
+          ↑ Paying ${fmtMo(effPmt - minPmt)}/mo extra vs minimum of ${fmtMo(minPmt)} · saves ${fmt(Math.max(0, minPmt * l.months - totPayoff))} in interest
+        </div>` : ''}
+      <div class="lpc-payoff-row">
+        <span style="color:var(--muted)">Total remaining payoff:</span>
+        <span style="font-weight:600;color:var(--text)">${isFinite(totPayoff) ? fmt(totPayoff) : '∞'}</span>
+        <span style="color:var(--dim)">·</span>
+        <span style="color:var(--muted)">of which interest:</span>
+        <span style="font-weight:600;color:var(--red)">${isFinite(totInt) ? fmt(totInt) : '∞'}</span>
+      </div>`;
+    cards.appendChild(div);
+  });
+
+  // Strategy comparison
+  const strats = [
+    { key:'minimum',  title:'Minimum only',     desc:'Pay exactly the set payment on each loan. No extra payment applied.' },
+    { key:'avalanche',title:'Avalanche ★',       desc:'Extra payment goes to highest-rate loan first. Mathematically optimal — minimizes total interest.' },
+    { key:'snowball', title:'Snowball',           desc:'Extra payment targets smallest balance first. Faster wins, slightly more interest overall.' },
+  ];
+  const results    = strats.map(s => ({ ...s, ...calcStrategyPayoff(p.loans, extraPmt, s.key) }));
+  const baseline   = results.find(r => r.key === 'minimum');
+  const minTotInt  = Math.min(...results.map(r => r.totalInterest));
+
+  document.getElementById('strategy-cards').innerHTML = results.map(r => {
+    const saving = r.key !== 'minimum' ? baseline.totalInterest - r.totalInterest : 0;
+    const isBest = r.totalInterest === minTotInt && r.key !== 'minimum';
+    return `<div class="strategy-card ${isBest ? 'best' : ''}">
+      <div class="strategy-title">${r.title}${isBest ? ' ✓' : ''}</div>
+      <div class="strategy-desc">${r.desc}</div>
+      <div class="strategy-stat">Paid off: <span>${r.months > 0 ? monthToDate(r.months) + ' (' + (r.months/12).toFixed(1) + ' yrs)' : 'N/A'}</span></div>
+      <div class="strategy-stat" style="margin-top:3px">Total interest: <span>${fmt(r.totalInterest)}</span></div>
+      ${saving > 0 ? `<div class="strategy-save">Saves ${fmt(saving)} vs minimum</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Risk rows
+  const basePayoff  = results.find(r => r.key === 'minimum');
+  const rentYr3     = rent * Math.pow(1 + rentIncr / 100, 3);
+  const pmtCapYr3   = Math.max(0, monthlyTH - rentYr3 - otherExp);
+  const canExtraYr3 = Math.max(0, pmtCapYr3 - totalMinPmt);
+  const rentImpact  = calcStrategyPayoff(p.loans, canExtraYr3, 'avalanche');
+  const rentDelta   = rentImpact.months - basePayoff.months;
+
+  const reducedSal  = p.sal * 0.8;
+  const reducedTH   = reducedSal / 12 * (1 - estimateTaxRate(reducedSal));
+  const pmtCapDrop  = Math.max(0, reducedTH - rent - otherExp);
+  const canMakeMin  = pmtCapDrop >= totalMinPmt;
+  const dropImpact  = calcStrategyPayoff(p.loans, Math.max(0, pmtCapDrop - totalMinPmt), 'minimum');
+  const dropDelta   = dropImpact.months - basePayoff.months;
+  const efTarget    = (rent + otherExp) * 6;
+  const efGap       = Math.max(0, efTarget - p.savings);
+  const highRate    = p.loans.filter(l => l.rate > 18 && l.bal > 0);
+
+  document.getElementById('risk-rows').innerHTML = `
+    <div class="risk-row">
+      <div class="risk-label">🏠 Rent +${rentIncr}%/yr → ${fmtMo(rentYr3)}/mo by Year 3<br>
+        <span style="font-size:9px">Capacity for extra payments drops to ${fmtMo(canExtraYr3)}/mo</span></div>
+      <div class="risk-impact">
+        <strong>${rentDelta > 0 ? '+' + rentDelta + ' months' : 'No impact'}</strong>
+        <small>${rentDelta > 0 ? 'Payoff pushed to ' + monthToDate(rentImpact.months) : '✓ Still on track'}</small>
+      </div>
+    </div>
+    <div class="risk-row">
+      <div class="risk-label">📉 Salary drops 20% temporarily<br>
+        <span style="font-size:9px">Take-home: ${fmtMo(reducedTH)}/mo · loan payments: ${fmtMo(totalMinPmt)}/mo</span></div>
+      <div class="risk-impact">
+        <strong style="color:${canMakeMin?'var(--text)':'var(--red)'}">${canMakeMin ? 'Payments covered' : '⚠ Can\'t cover payments'}</strong>
+        <small>${canMakeMin ? 'Payoff delayed ~' + dropDelta + ' mo' : 'Deficit: ' + fmtMo(totalMinPmt - pmtCapDrop)}</small>
+      </div>
+    </div>
+    <div class="risk-row">
+      <div class="risk-label">🚨 Emergency fund gap<br>
+        <span style="font-size:9px">Target: 6 months living costs = ${fmtMo(efTarget)}</span></div>
+      <div class="risk-impact">
+        <strong>${efGap > 0 ? fmt(efGap) + ' short' : '✓ Funded'}</strong>
+        <small>Savings: ${fmt(p.savings)}</small>
+      </div>
+    </div>
+    <div class="risk-row">
+      <div class="risk-label">💳 High-rate debt risk<br>
+        <span style="font-size:9px">Loans above 18% APR compound fast</span></div>
+      <div class="risk-impact">
+        ${highRate.length > 0
+          ? `<strong style="color:var(--red)">${highRate.length} loan${highRate.length>1?'s':''} above 18%</strong><small>Pay avalanche — target these first</small>`
+          : '<strong style="color:var(--green)">✓ No predatory rates</strong>'}
+      </div>
+    </div>`;
+
+  // Bonus impact + per-loan schedule
+  renderBonusImpact(p);
+  renderDebtMonthlyTable(p);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  COMPARISON VIEW
+// ═══════════════════════════════════════════════════════════════════════
+function updateCompare() {
+  const pA = getParams();
+  const pB = {
+    loans:   pA.loans,
+    savings: pA.savings,
+    invest:  pA.invest,
+    other:   pA.other,
+    sal:     parseFloat(document.getElementById('b_sal').value)   || 0,
+    raise:   parseFloat(document.getElementById('b_raise').value) || 0,
+    msave:   parseFloat(document.getElementById('b_msave').value) || 0,
+    ret:     parseFloat(document.getElementById('b_ret').value)   || 0,
+    internBonus: 0, ftBonus: 0, tuition: 0,
+    get pmt() { return this.loans.reduce((a, l) => a + effectiveLoanPayment(l), 0); }
+  };
+  const extraB = parseFloat(document.getElementById('b_extra').value) || 0;
+
+  document.getElementById('cmp-a-summary').innerHTML = `
+    <div class="scenario-row"><span class="skey">Salary</span><span class="sval good">${fmt(pA.sal)}/yr</span></div>
+    <div class="scenario-row"><span class="skey">Annual raise</span><span class="sval">${pA.raise}%</span></div>
+    <div class="scenario-row"><span class="skey">Monthly savings</span><span class="sval">${fmt(pA.msave)}/mo</span></div>
+    <div class="scenario-row"><span class="skey">Monthly debt service</span><span class="sval bad">${fmtMo(pA.pmt)}/mo (per your inputs)</span></div>
+    <div class="scenario-row"><span class="skey">Return rate</span><span class="sval">${pA.ret}%/yr</span></div>
+    <div class="scenario-row"><span class="skey">Total debt</span><span class="sval bad">${fmt(pA.loans.reduce((a,l)=>a+l.bal,0))}</span></div>
+    ${(pA.internBonus+pA.ftBonus+pA.tuition) > 0 ? `<div class="scenario-row"><span class="skey">Bonuses</span><span class="sval good">+${fmt(pA.internBonus+pA.ftBonus+pA.tuition)}</span></div>` : ''}`;
+
+  const rA = projectNetWorth(pA);
+  const rB = projectNetWorth(pB, extraB);
+  const labels = ['Now', 'Yr 5', 'Yr 10', 'Yr 15', 'Yr 20', 'Yr 25', 'Yr 30'];
+
+  if (compareChart) compareChart.destroy();
+  compareChart = new Chart(document.getElementById('compareChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'Path A (MBA)', data:rA.nwArr, borderColor:'#15803d', backgroundColor:'rgba(21,128,61,0.06)', tension:0.4, fill:true, pointRadius:5, pointBackgroundColor:'#15803d' },
+      { label:'Path B (Old)', data:rB.nwArr, borderColor:'#1e40af', backgroundColor:'rgba(30,64,175,0.06)', tension:0.4, fill:true, pointRadius:5, pointBackgroundColor:'#1e40af', borderDash:[6,3] },
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{
+        y:{ ticks:{callback:v=>fmt(v),color:C.ticks,font:C.font}, grid:{color:C.grid}, border:{color:'transparent'} },
+        x:{ ticks:{color:C.ticks,font:C.font}, grid:{display:false}, border:{color:C.grid} }
+      }
+    }
+  });
+
+  const schedA = buildLoanSchedule(pA, 'all');
+  const schedB = buildLoanSchedule(pB, 'all');
+  const payA   = schedA.length ? schedA[schedA.length-1].month : null;
+  const payB   = schedB.length ? schedB[schedB.length-1].month : null;
+  const intA   = schedA.reduce((a,r) => a + r.interest, 0);
+  const intB   = schedB.reduce((a,r) => a + r.interest, 0);
+
+  function dCell(a, b, higherBetter = true) {
+    const d = a - b; if (!isFinite(d)) return '<td>—</td>';
+    if (d === 0) return '<td class="col-diff">—</td>';
+    const cls = (higherBetter ? d > 0 : d < 0) ? 'pos' : 'neg';
+    return `<td class="col-diff ${cls}">${d > 0 ? '+' : ''}${fmt(d)}</td>`;
+  }
+  function dMoCell(a, b) {
+    if (a === null && b === null) return '<td>—</td>';
+    if (a === null) return '<td class="col-diff neg">No payoff date</td>';
+    if (b === null) return '<td class="col-diff pos">Path B no payoff</td>';
+    const d = a - b;
+    const cls = d < 0 ? 'pos' : d > 0 ? 'neg' : '';
+    const yrs = Math.abs(d / 12).toFixed(1);
+    return `<td class="col-diff ${cls}">${d < 0 ? yrs + ' yrs earlier' : d > 0 ? yrs + ' yrs later' : 'Same'}</td>`;
+  }
+
+  const rows = [
+    ['Net worth today',      fmt(rA.nwArr[0]), fmt(rB.nwArr[0]), dCell(rA.nwArr[0], rB.nwArr[0])],
+    ['Net worth Year 5',     fmt(rA.nwArr[1]), fmt(rB.nwArr[1]), dCell(rA.nwArr[1], rB.nwArr[1])],
+    ['Net worth Year 10',    fmt(rA.nwArr[2]), fmt(rB.nwArr[2]), dCell(rA.nwArr[2], rB.nwArr[2])],
+    ['Net worth Year 20',    fmt(rA.nwArr[4]), fmt(rB.nwArr[4]), dCell(rA.nwArr[4], rB.nwArr[4])],
+    ['Net worth Year 30',    fmt(rA.nwArr[6]), fmt(rB.nwArr[6]), dCell(rA.nwArr[6], rB.nwArr[6])],
+    ['Last loan paid off',   payA ? monthToDate(payA) : 'Never', payB ? monthToDate(payB) : 'Never', dMoCell(payA, payB)],
+    ['Total interest paid',  fmt(intA), fmt(intB), dCell(-intA, -intB)],
+    ['Monthly debt service', fmtMo(pA.pmt) + '/mo', fmtMo(pB.pmt) + '/mo', '—'],
+    ['Monthly savings',      fmtMo(pA.msave), fmtMo(pB.msave), dCell(pA.msave, pB.msave)],
+  ];
+
+  document.getElementById('cmp-tbody').innerHTML = rows.map(([label, a, b, diff]) =>
+    `<tr><td>${label}</td><td class="col-a">${a}</td><td class="col-b">${b}</td>${diff}</tr>`
+  ).join('');
+
+  // ── Debt burden by year table ──
+  const cfA = buildYearlyCashFlows(pA);
+  const cfB = buildYearlyCashFlows(pB);
+  const debtBodyEl = document.getElementById('cmp-debt-tbody');
+  if (debtBodyEl) {
+    debtBodyEl.innerHTML = cfA.map((rowA, i) => {
+      const rowB      = cfB[i];
+      const debtFree  = rowA.debtEnd < 1;
+      const bAnum     = rowA.annualTH > 0 ? rowA.annualLoanPmt / rowA.annualTH * 100 : 0;
+      const bBnum     = rowB.annualTH > 0 ? rowB.annualLoanPmt / rowB.annualTH * 100 : 0;
+      const aStyle    = debtFree ? '' : (bAnum > 30 ? 'color:var(--red)' : bAnum < 20 ? 'color:var(--green)' : 'color:var(--amber)');
+      const bStyle    = debtFree ? '' : (bBnum > 30 ? 'color:var(--red)' : bBnum < 20 ? 'color:var(--green)' : 'color:var(--amber)');
+      return `<tr${rowA.year % 5 === 0 ? ' class="yr5-row"' : ''}>
+        <td style="font-weight:700;color:var(--accent)">Yr ${rowA.year}</td>
+        <td class="col-a">${fmt(rowA.annualTH)}</td>
+        <td class="col-b">${fmt(rowB.annualTH)}</td>
+        <td style="color:var(--purple)">${rowA.annualLoanPmt > 0 ? fmt(rowA.annualLoanPmt) : '<span style="color:var(--green)">✓ Free</span>'}</td>
+        <td class="col-a"><span style="${aStyle};font-weight:600">${debtFree ? '—' : bAnum.toFixed(1) + '%'}</span></td>
+        <td class="col-b"><span style="${bStyle};font-weight:600">${debtFree ? '—' : bBnum.toFixed(1) + '%'}</span></td>
+        <td>${debtFree ? '<span style="color:var(--green);font-weight:700">✓ DEBT FREE</span>' : fmt(rowA.debtEnd)}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  INSIGHTS ENGINE
+// ═══════════════════════════════════════════════════════════════════════
+function updateInsights() {
+  const p       = getParams();
+  const cascade = calcCascadePayoff(p.loans);
+  const cfRows  = buildYearlyCashFlows(p);
+  const bonus   = calcBonusLumpSum(p);
+  const taxRate = estimateTaxRate(p.sal);
+  const monthlyTH = (p.sal / 12) * (1 - taxRate);
+  const totalDebt = p.loans.reduce((a, l) => a + l.bal, 0);
+  const totalMinPmt = p.loans.reduce((a, l) => a + effectiveLoanPayment(l), 0);
+  const debtBurden  = monthlyTH > 0 ? (totalMinPmt / monthlyTH * 100) : 0;
+  const savingsRate = monthlyTH > 0 ? (p.msave / monthlyTH * 100) : 0;
+  const startNW     = (p.invest + p.savings + p.other) - totalDebt;
+  const nw10        = cfRows[9]  ? cfRows[9].nwEnd  : 0;
+  const nw20        = cfRows[19] ? cfRows[19].nwEnd : 0;
+  const nw30        = cfRows[29] ? cfRows[29].nwEnd : 0;
+
+  // Find when NW crosses zero (if negative now)
+  const breakEvenYr = cfRows.find(r => r.nwEnd >= 0);
+  const dfYr        = cfRows.find(r => r.debtEnd < 1);
+
+  // High-rate loans
+  const highRateLoans = p.loans.filter(l => l.bal > 0 && l.rate >= 15);
+  const sortedByRate  = [...p.loans].filter(l => l.bal > 0).sort((a, b) => b.rate - a.rate);
+  const belowMinLoans = p.loans.filter(l => {
+    const min = calcLoanPayment(l);
+    const eff = effectiveLoanPayment(l);
+    return l.bal > 0 && min > 0 && eff < min - 0.5;
+  });
+
+  const cards = [];
+
+  // ── 1. Credit card / high-rate debt ──
+  if (highRateLoans.length > 0) {
+    const cc = highRateLoans[0];
+    const annInt = cc.bal * cc.rate / 100;
+    cards.push({
+      type: 'critical',
+      label: '🔴 Priority #1',
+      title: `Obliterate your ${cc.name} (${cc.rate}%) first`,
+      body: `You're paying <strong>${fmt(Math.round(annInt))}/year</strong> in pure interest on the ${cc.name}. At ${cc.rate}%, this is a guaranteed ${cc.rate}% loss every month you carry it. Paying it off is the highest risk-free return available to you — better than any stock or bond.`,
+      action: `→ Throw every spare dollar here. Current balance: ${fmt(cc.bal)}. At ${fmtMo(effectiveLoanPayment(cc))}/mo it's gone in ${Math.ceil(singleLoanPayoffMonthsI(cc))} months — a raise in disguise.`
+    });
+  }
+
+  // ── 2. Below-minimum payment warning ──
+  if (belowMinLoans.length > 0) {
+    const l = belowMinLoans[0];
+    const minPmt = calcLoanPayment(l);
+    const effPmt = effectiveLoanPayment(l);
+    const moExtraNeeded = Math.round(minPmt - effPmt);
+    cards.push({
+      type: 'warn',
+      label: '⚠ Below Minimum',
+      title: `${l.name} payment is below minimum — you're falling behind`,
+      body: `Your current payment of <strong>${fmtMo(effPmt)}/mo</strong> on the ${l.name} is below the true minimum of <strong>${fmtMo(minPmt)}/mo</strong>. You're extending your payoff timeline and paying more interest than necessary. Every extra dollar here is compounding against you at ${l.rate}%.`,
+      action: `→ Raise ${l.name} payment by ${fmtMo(moExtraNeeded)}/mo to hit minimum. This alone could save tens of thousands in interest.`
+    });
+  }
+
+  // ── 3. Savings rate ──
+  if (savingsRate < 15) {
+    const target = Math.round(monthlyTH * 0.20);
+    const gap    = Math.max(0, target - p.msave);
+    const extraNW10 = Math.round(gap * 12 * ((Math.pow(1 + p.ret/100, 10) - 1) / (p.ret/100)));
+    cards.push({
+      type: 'warn',
+      label: '📊 Savings Rate',
+      title: `Savings rate is ${savingsRate.toFixed(0)}% — target 20%+`,
+      body: `You're saving <strong>${fmtMo(p.msave)}/mo</strong> (${savingsRate.toFixed(0)}% of take-home). Financial rule of thumb: save 20%+ of take-home to build real wealth. Raising to 20% means saving <strong>${fmtMo(target)}/mo</strong>.`,
+      action: `→ Adding just ${fmtMo(gap)}/mo to savings ≈ ${fmt(extraNW10)} more in your portfolio by Year 10.`
+    });
+  } else {
+    cards.push({
+      type: 'good',
+      label: '✅ Savings Rate',
+      title: `Strong savings rate: ${savingsRate.toFixed(0)}% of take-home`,
+      body: `Saving <strong>${fmtMo(p.msave)}/mo</strong> puts you at ${savingsRate.toFixed(0)}% of take-home — above the 20% benchmark. At this rate your portfolio compounds meaningfully. Keep it up and consider raising it 1% every time you get a raise.`,
+      action: `→ Every 1% raise increase → try to save half of it. Lifestyle inflation is the silent wealth killer.`
+    });
+  }
+
+  // ── 4. Debt burden ──
+  if (debtBurden > 35) {
+    cards.push({
+      type: 'critical',
+      label: '🔴 Debt Burden',
+      title: `${debtBurden.toFixed(0)}% of take-home goes to debt — dangerously high`,
+      body: `You're spending <strong>${fmtMo(totalMinPmt)}/mo</strong> on loan payments out of <strong>${fmtMo(monthlyTH)}/mo</strong> take-home. At ${debtBurden.toFixed(0)}%, your financial flexibility is severely limited. Standard advice: keep total debt service under 36% of gross income.`,
+      action: `→ Focus on eliminating the highest-rate debt (${sortedByRate[0]?.name}) first. Each payoff frees cash for the next.`
+    });
+  } else if (debtBurden > 20) {
+    cards.push({
+      type: 'warn',
+      label: '⚠ Debt Burden',
+      title: `${debtBurden.toFixed(0)}% of take-home goes to debt — manageable but watch it`,
+      body: `Debt service is <strong>${fmtMo(totalMinPmt)}/mo</strong> — ${debtBurden.toFixed(0)}% of take-home. That's manageable on your Deloitte salary, but means less cash available for investing. The faster you clear your high-rate debt, the faster this drops.`,
+      action: `→ Debt-free by ${dfYr ? 'Year ' + dfYr.year : 'beyond Year 30'} at current pace. Avalanche/snowball your bonus to accelerate.`
+    });
+  }
+
+  // ── 5. Signing bonus opportunity ──
+  if (bonus.bonusTotal > 0 && bonus.monthsSaved > 0) {
+    cards.push({
+      type: 'purple',
+      label: '💰 Bonus Opportunity',
+      title: `Your ${fmt(bonus.bonusTotal)} signing bonus = ${fmt(bonus.interestSaved)} in free money`,
+      body: `Throwing your entire signing bonus at debt snowball-style saves <strong>${bonus.monthsSaved} months</strong> (${(bonus.monthsSaved/12).toFixed(1)} years) and <strong>${fmt(bonus.interestSaved)} in interest</strong>. That's a guaranteed ${(bonus.interestSaved/bonus.bonusTotal*100).toFixed(0)}% return — higher than almost any investment.`,
+      action: `→ Apply bonus day 1. Smallest balance first (snowball): CC → Undergrad → MBA. Freed payments cascade automatically.`
+    });
+  } else if (bonus.bonusTotal > 0) {
+    cards.push({
+      type: 'purple',
+      label: '💰 Bonus Decision',
+      title: `${fmt(bonus.bonusTotal)} bonus: debt vs invest?`,
+      body: `Your bonus is large enough to make a real dent. Paying down ${sortedByRate[0]?.name} at ${sortedByRate[0]?.rate}% is a <strong>guaranteed ${sortedByRate[0]?.rate}% return</strong>. Investing expects ~${p.ret}%. If market returns dip below ${sortedByRate[0]?.rate}%, debt paydown wins every time.`,
+      action: `→ At minimum, wipe out the Credit Card (22%) immediately. The rest: split between debt and index funds.`
+    });
+  }
+
+  // ── 6. Net worth trajectory ──
+  const nwMilestones = [];
+  [0, 100000, 250000, 500000, 1000000].forEach(target => {
+    const yr = target === 0
+      ? breakEvenYr
+      : cfRows.find(r => r.nwEnd >= target);
+    if (yr) nwMilestones.push({ target, year: yr.year, date: yearToDate(yr.year) });
+  });
+  if (nwMilestones.length > 0) {
+    const milestoneHTML = nwMilestones.map(m => {
+      const colors = ['#16a34a','#2563eb','#7c3aed','#d97706','#dc2626'];
+      const col = m.target === 0 ? '#16a34a' : m.target < 250000 ? '#2563eb' : m.target < 500000 ? '#7c3aed' : '#d97706';
+      return `<div class="insight-milestone"><div class="dot" style="background:${col}"></div><div class="label">${m.target === 0 ? 'Break-even (NW = $0)' : fmt(m.target) + ' net worth'}</div><div class="val">Year ${m.year} · ${m.date}</div></div>`;
+    }).join('');
+    cards.push({
+      type: 'info',
+      label: '📈 Net Worth Milestones',
+      title: `You hit $1M net worth${cfRows[29].nwEnd >= 1000000 ? ' before Year 30' : ' — keep stacking'}`,
+      body: `At current savings and debt paydown pace, here's when you cross key milestones:<div class="insight-nw-bar" style="margin-top:8px">${milestoneHTML}</div>`,
+      action: `→ Year 30 net worth: <strong>${fmt(nw30)}</strong>. Every extra $100/mo in savings adds ~${fmt(Math.round(100 * 12 * (Math.pow(1+p.ret/100,30)-1)/(p.ret/100)))} at Year 30.`
+    });
+  }
+
+  // ── 7. Investment return sense-check ──
+  if (p.ret < 6) {
+    cards.push({
+      type: 'warn',
+      label: '📊 Return Assumption',
+      title: `${p.ret}% return might be too conservative`,
+      body: `The S&P 500 has returned ~10.5% nominal / ~7.5% real (inflation-adjusted) annually over the last 50 years. At ${p.ret}%, you may be undershooting. A 1% difference in return rate compounded over 30 years is enormous.`,
+      action: `→ Try bumping return to 7–8% in the sidebar to see the upside scenario. Don't let conservative assumptions anchor your expectations too low.`
+    });
+  } else if (p.ret > 9) {
+    cards.push({
+      type: 'warn',
+      label: '⚠ Return Assumption',
+      title: `${p.ret}% return assumption is optimistic`,
+      body: `Historical S&P 500 real return (after inflation) is ~7–7.5%. Projecting ${p.ret}% may overstate your future wealth. Plan conservatively; be pleasantly surprised.`,
+      action: `→ Model at 7% for base case, 5% for conservative. If you beat it — great. Don't make spending decisions based on ${p.ret}% projections.`
+    });
+  }
+
+  // ── 8. Raise impact ──
+  const extraRaise = 1; // 1% more raise
+  const nw30WithExtraRaise = (() => {
+    const p2 = { ...p, raise: p.raise + extraRaise };
+    const cf2 = buildYearlyCashFlows(p2);
+    return cf2[29].nwEnd;
+  })();
+  const raiseImpact = nw30WithExtraRaise - nw30;
+  if (raiseImpact > 10000) {
+    cards.push({
+      type: 'info',
+      label: '🚀 Career Lever',
+      title: `Each 1% raise increase = ${fmt(raiseImpact)} more by Year 30`,
+      body: `Negotiating your raise from ${p.raise}% to ${p.raise + extraRaise}% per year adds <strong>${fmt(raiseImpact)}</strong> to your net worth by Year 30 — more than most one-time investments. Your career earnings are your biggest asset early on.`,
+      action: `→ At Deloitte S&A, promo to Senior Consultant in 2–3 yrs adds ~$25–40k to base. That salary jump dwarfs any savings hack.`
+    });
+  }
+
+  // ── Render ──
+  const scoreItems = [
+    { label: 'Debt burden', val: debtBurden.toFixed(0) + '%', cls: debtBurden > 35 ? 'neg' : debtBurden > 20 ? '' : 'pos' },
+    { label: 'Savings rate', val: savingsRate.toFixed(0) + '%', cls: savingsRate >= 20 ? 'pos' : savingsRate >= 10 ? '' : 'neg' },
+    { label: 'Debt-free', val: dfYr ? 'Year ' + dfYr.year : '>Yr 30', cls: dfYr && dfYr.year <= 15 ? 'pos' : '' },
+    { label: 'Year 10 NW', val: fmt(nw10), cls: nw10 >= 0 ? 'pos' : 'neg' },
+  ];
+  document.getElementById('insights-score-row').innerHTML = scoreItems.map(s =>
+    `<div class="kpi"><div class="kpi-label">${s.label}</div><div class="kpi-value ${s.cls}">${s.val}</div></div>`
+  ).join('');
+
+  document.getElementById('insights-grid').innerHTML = cards.map(c => `
+    <div class="insight-card ${c.type}">
+      <div class="insight-label">${c.label}</div>
+      <div class="insight-title">${c.title}</div>
+      <div class="insight-body">${c.body}</div>
+      <div class="insight-action">${c.action}</div>
+    </div>`).join('');
+}
+
+// Helper: single-loan payoff months (safe for insights, no divide-by-zero guard issues)
+function singleLoanPayoffMonthsI(loan) {
+  const r   = loan.rate / 100 / 12;
+  const pmt = effectiveLoanPayment(loan);
+  if (pmt <= 0 || loan.bal <= 0) return 0;
+  if (r === 0) return Math.ceil(loan.bal / pmt);
+  if (pmt <= loan.bal * r) return 999;
+  return Math.ceil(-Math.log(1 - (r * loan.bal) / pmt) / Math.log(1 + r));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  VIEW SWITCHING
+// ═══════════════════════════════════════════════════════════════════════
+function showView(v, el) {
+  currentView = v;
+  document.querySelectorAll('.view').forEach(e => e.hidden = true);
+  document.getElementById('view-' + v).hidden = false;
+  document.querySelectorAll('.vbtn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const p = getParams(); lastParams = p;
+  const { nwArr, assArr, debtArr, yearlyData } = projectNetWorth(p);
+  if      (v === 'overview')   update();
+  else if (v === 'yearly')     { renderYearlyTable(p, yearlyData); renderYearlyCharts(yearlyData); }
+  else if (v === 'cashflows')  renderCashFlows();
+  else if (v === 'debt')       updateDebt();
+  else if (v === 'compare')    updateCompare();
+  else if (v === 'insights')   updateInsights();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SIDEBAR RESIZE HANDLE
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  const handle  = document.getElementById('resize-handle');
+  const sidebar = document.querySelector('.sidebar');
+  if (!handle || !sidebar) return;
+
+  let dragging = false, startX = 0, startW = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX   = e.clientX;
+    startW   = sidebar.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor    = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = e.clientX - startX;
+    const newW  = Math.min(520, Math.max(180, startW + delta));
+    sidebar.style.width = newW + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor    = '';
+    document.body.style.userSelect = '';
+    // Redraw charts after resize
+    if (mainChart)   mainChart.resize();
+    if (debtChart)   debtChart.resize();
+    if (yearlyChart) yearlyChart.resize();
+    if (salaryChart) salaryChart.resize();
+    if (compareChart)compareChart.resize();
+  });
+
+  // Touch support
+  handle.addEventListener('touchstart', e => {
+    dragging = true; startX = e.touches[0].clientX; startW = sidebar.offsetWidth;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const newW = Math.min(520, Math.max(180, startW + e.touches[0].clientX - startX));
+    sidebar.style.width = newW + 'px';
+  }, { passive: true });
+  document.addEventListener('touchend', () => { dragging = false; });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  BONUS LUMP-SUM IMPACT
+// ═══════════════════════════════════════════════════════════════════════
+let bonusCompareChart, perLoanChart;
+let currentDebtMonthlyLoan = '__all__';
+
+// ── Cascade payoff simulation ──
+// Keeps ALL loans in state (including $0-balance ones from bonus payoff)
+// so their minPmt counts toward the freed pool from month 1.
+function calcCascadePayoff(loansIn) {
+  // Build state explicitly — do NOT use effectiveLoanPayment/calcLoanPayment for
+  // zero-balance loans because calcLoanPayment short-circuits on bal<=0 → returns 0,
+  // which causes bonus-paid-off loans' freed payments to vanish from the cascade pool.
+  const state0 = loansIn
+    .filter(l => l.months > 0)
+    .map(l => {
+      // custPmt is valid even when bal=0 (e.g. bonus paid it off).
+      // calcLoanPayment(l) is only safe when bal>0 (it guards on bal<=0 → 0).
+      const cp  = (l.custPmt !== null && l.custPmt !== undefined) ? Number(l.custPmt) : 0;
+      const pmt = cp > 0 ? cp : (l.bal > 0 ? calcLoanPayment(l) : 0);
+      return { bal: l.bal, mrate: l.rate / 100 / 12, minPmt: pmt };
+    })
+    .filter(s => s.minPmt > 0 || s.bal > 0)  // keep if it has a payment OR a balance
+    .sort((a, b) => a.bal - b.bal);           // snowball: smallest balance first
+
+  if (!state0.length) return { months: 0, totalInterest: 0 };
+  if (state0.every(s => s.bal <= 0.01)) return { months: 0, totalInterest: 0 };
+
+  let state = state0;
+  let month = 0, totalInterest = 0;
+
+  while (state.some(s => s.bal > 0.01) && month < 600) {
+    month++;
+    // Freed pool: sum of minPmt for every $0-balance loan.
+    // Loans paid off by the bonus contribute from month 1 — that's the whole fix.
+    const freed = state.filter(s => s.bal <= 0.01).reduce((a, s) => a + s.minPmt, 0);
+    const ci    = state.findIndex(s => s.bal > 0.01); // cascade target (smallest active)
+
+    state = state.map((s, i) => {
+      if (s.bal <= 0.01) return s;
+      const int   = s.bal * s.mrate;
+      totalInterest += int;
+      const extra = i === ci ? freed : 0;
+      const pmt   = Math.min(s.bal + int, s.minPmt + extra);
+      const prin  = Math.max(0, pmt - int);
+      return { ...s, bal: Math.max(0, s.bal - prin) };
+    });
+  }
+
+  return { months: month, totalInterest: Math.round(totalInterest) };
+}
+
+function calcBonusLumpSum(p) {
+  const bonusTotal = (p.internBonus || 0) + (p.ftBonus || 0);
+
+  // Apply lump sum — snowball order (smallest balance first)
+  const sorted = [...p.loans]
+    .filter(l => l.bal > 0)
+    .sort((a, b) => a.bal - b.bal);   // snowball: smallest first
+
+  let remaining = bonusTotal;
+  const applied = {};
+  for (const loan of sorted) {
+    if (remaining <= 0) break;
+    const amt = Math.min(remaining, loan.bal);
+    applied[loan.id] = amt;
+    remaining -= amt;
+  }
+
+  const loansAfter = p.loans.map(l => ({
+    ...l,
+    bal: Math.max(0, l.bal - (applied[l.id] || 0)),
+  }));
+
+  // Use CASCADE simulation for both before and after — freed payments roll forward
+  const before = calcCascadePayoff(p.loans);
+  const after  = calcCascadePayoff(loansAfter);
+
+  const monthsSaved   = Math.max(0, before.months - after.months);
+  const interestSaved = Math.max(0, before.totalInterest - after.totalInterest);
+  const leftoverBonus = remaining;
+
+  return { bonusTotal, applied, loansAfter, before, after,
+    monthsSaved, interestSaved, leftoverBonus, sorted };
+}
+
+function renderBonusImpact(p) {
+  const res = calcBonusLumpSum(p);
+  if (!res || res.bonusTotal <= 0) {
+    document.getElementById('bonus-impact-card').style.opacity = '0.4';
+    document.getElementById('bi-kpis').innerHTML = `<div style="grid-column:1/-1;font-size:11px;color:var(--muted);padding:10px">Add an intern or FT signing bonus in the sidebar to see the impact.</div>`;
+    return;
+  }
+  document.getElementById('bonus-impact-card').style.opacity = '1';
+
+  const maxDebt = Math.max(...p.loans.map(l => l.bal), 1);
+
+  // ── KPI row ──
+  const beforeDateStr = res.before.months > 0 ? monthToDate(res.before.months) : 'Never';
+  const afterDateStr  = res.after.months  > 0 ? monthToDate(res.after.months)  : 'Never';
+
+  document.getElementById('bi-kpis').innerHTML = `
+    <div class="bi-kpi">
+      <div class="bi-kpi-label">Total bonus lump sum</div>
+      <div class="bi-kpi-val">${fmt(res.bonusTotal)}</div>
+      <div class="bi-kpi-sub">intern $${(p.internBonus||0).toLocaleString()} + FT $${(p.ftBonus||0).toLocaleString()}</div>
+    </div>
+    <div class="bi-kpi">
+      <div class="bi-kpi-label">Total months saved</div>
+      <div class="bi-kpi-val good">${res.monthsSaved > 0 ? res.monthsSaved + ' mo' : '—'}</div>
+      <div class="bi-kpi-sub">${res.monthsSaved > 0 ? (res.monthsSaved / 12).toFixed(1) + ' years earlier — ALL debt gone' : 'No change to total payoff'}</div>
+    </div>
+    <div class="bi-kpi">
+      <div class="bi-kpi-label">Interest saved (all loans)</div>
+      <div class="bi-kpi-val good">${fmt(res.interestSaved)}</div>
+      <div class="bi-kpi-sub">real money back in your pocket</div>
+    </div>
+    <div class="bi-kpi">
+      <div class="bi-kpi-label">Debt-free date w/ bonus</div>
+      <div class="bi-kpi-val" style="font-size:13px;color:var(--green)">${afterDateStr}</div>
+      <div class="bi-kpi-sub">vs ${beforeDateStr} without · snowball cascade</div>
+    </div>`;
+
+  // ── Loan balance bars ──
+  let barsHtml = '';
+  p.loans.filter(l => l.bal > 0).forEach(l => {
+    const newBal   = Math.max(0, l.bal - (res.applied[l.id] || 0));
+    const pctBef   = (l.bal / maxDebt * 100).toFixed(1);
+    const pctAft   = (newBal / maxDebt * 100).toFixed(1);
+    const appAmt   = res.applied[l.id] || 0;
+    const rateClass = l.rate < 6 ? 'rate-low' : l.rate < 15 ? 'rate-mid' : 'rate-high';
+    barsHtml += `
+      <div class="bi-loan-row">
+        <div class="bi-loan-label" style="font-weight:600">${l.name} <span class="lpc-rate-badge ${rateClass}" style="font-size:9px;padding:1px 5px">${l.rate}%</span></div>
+        <div class="bi-bar-group">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="bi-bar-wrap" style="flex:1"><div class="bi-bar-before" style="width:${pctBef}%"></div></div>
+            <span style="font-size:10px;color:var(--red);width:68px;text-align:right">${fmt(l.bal)}</span>
+            <span class="bi-bar-label" style="width:32px">before</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="bi-bar-wrap" style="flex:1"><div class="bi-bar-after" style="width:${pctAft}%"></div></div>
+            <span style="font-size:10px;color:var(--green);width:68px;text-align:right">${newBal === 0 ? '✓ PAID OFF' : fmt(newBal)}</span>
+            <span class="bi-bar-label" style="width:32px">after</span>
+          </div>
+        </div>
+        ${appAmt > 0 ? `<span class="bi-applied-chip">−${fmt(appAmt)} applied</span>` : `<span style="font-size:9px;color:var(--dim);white-space:nowrap">no change</span>`}
+      </div>`;
+  });
+  document.getElementById('bi-loan-bars').innerHTML = barsHtml;
+
+  // ── Before/After comparison line chart — uses cascade model (matches KPI) ──
+  const buildDebtCurve = (loans) => {
+    const active = loans.filter(l => l.bal > 0);
+    let state = active.slice().sort((a, b) => a.bal - b.bal)
+      .map(l => ({ bal: l.bal, mrate: l.rate/100/12, minPmt: effectiveLoanPayment(l) }));
+    const pts = [Math.round(state.reduce((a, l) => a + l.bal, 0))];
+    for (let m = 1; m <= 360; m++) {
+      const freed = state.filter(l => l.bal <= 0.01).reduce((a, l) => a + l.minPmt, 0);
+      const cascadeIdx = state.findIndex(l => l.bal > 0.01);
+      state = state.map((l, idx) => {
+        if (l.bal <= 0.01) return l;
+        const int  = l.bal * l.mrate;
+        const extra = idx === cascadeIdx ? freed : 0;
+        const pmt   = Math.min(l.bal + int, l.minPmt + extra);
+        const prin  = Math.max(0, pmt - int);
+        return { ...l, bal: Math.max(0, l.bal - prin) };
+      });
+      pts.push(Math.max(0, Math.round(state.reduce((a, l) => a + l.bal, 0))));
+      if (state.every(l => l.bal <= 0.01)) break;
+    }
+    return pts;
+  };
+  const curveBefore = buildDebtCurve(p.loans);
+  const curveAfter  = buildDebtCurve(res.loansAfter);
+  const maxLen = Math.max(curveBefore.length, curveAfter.length);
+  const chartLabels = Array.from({ length: maxLen }, (_, i) => i % 12 === 0 ? (i === 0 ? 'Now' : 'Yr ' + (i/12)) : '');
+
+  if (bonusCompareChart) bonusCompareChart.destroy();
+  bonusCompareChart = new Chart(document.getElementById('bonusCompareChart'), {
+    type: 'line',
+    data: { labels: chartLabels, datasets: [
+      { label: 'Without bonus', data: curveBefore, borderColor: '#b91c1c', backgroundColor: 'rgba(185,28,28,0.06)', tension: 0.3, fill: true,  pointRadius: 0, borderWidth: 2 },
+      { label: 'With bonus',    data: curveAfter,  borderColor: '#15803d', backgroundColor: 'rgba(21,128,61,0.08)', tension: 0.3, fill: true,  pointRadius: 0, borderWidth: 2, borderDash: [5,3] },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { color: C.ticks, font: { size: 10, family: 'DM Mono' }, boxWidth: 8, boxHeight: 8 }},
+        tooltip: {
+          backgroundColor: '#fff', borderColor: 'rgba(0,0,0,0.1)', borderWidth: 1,
+          titleColor: '#1a1918', bodyColor: '#555',
+          titleFont: { family: 'Syne', size: 11, weight: '600' }, bodyFont: { family: 'DM Mono', size: 10 }, padding: 9,
+          callbacks: {
+            title: ctx => 'Month ' + ctx[0].dataIndex,
+            label: ctx => `  ${ctx.dataset.label}: ${fmt(ctx.raw)} debt`,
+            afterBody: ctx => {
+              const diff = curveBefore[ctx[0].dataIndex] - curveAfter[ctx[0].dataIndex];
+              return diff > 0 ? [`  ↓ ${fmt(diff)} less debt with bonus`] : [];
+            }
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: v => fmtK(v), color: C.ticks, font: C.font, maxTicksLimit: 6 }, grid: { color: C.grid }, border: { color: 'transparent' } },
+        x: { ticks: { color: C.ticks, font: { size: 9, family: 'DM Mono' }, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false }, border: { color: C.grid } }
+      }
+    }
+  });
+
+  // ── Per-loan line chart ──
+  renderPerLoanChart(p);
+
+  // ── Verdict ──
+  const verdict = document.getElementById('bi-verdict');
+  const effectiveReturn = res.bonusTotal > 0 ? (res.interestSaved / res.bonusTotal * 100).toFixed(0) : 0;
+  if (res.monthsSaved >= 12) {
+    verdict.className = 'bi-verdict great';
+    verdict.innerHTML = `<strong>🔥 Yes — throws all ${fmt(res.bonusTotal)} at debt snowball-style and wipes out your smallest balances first, then cascades freed payments to the next loan. You go completely debt-free ${res.monthsSaved} months (${(res.monthsSaved/12).toFixed(1)} years) earlier and save ${fmt(res.interestSaved)} in interest — a guaranteed ${effectiveReturn}% effective return on the bonus money.</strong>`;
+  } else if (res.monthsSaved > 0) {
+    verdict.className = 'bi-verdict good';
+    verdict.innerHTML = `<strong>✓ Yes — saves ${res.monthsSaved} months and ${fmt(res.interestSaved)} in interest.</strong> Applying ${fmt(res.bonusTotal)} snowball-style knocks out smaller balances first, then the freed payments cascade into larger loans. Still a guaranteed ${effectiveReturn}% effective return.`;
+  } else if (res.leftoverBonus > 0) {
+    verdict.className = 'bi-verdict good';
+    verdict.innerHTML = `<strong>✓ Bonus wipes out all debt entirely</strong> — with ${fmt(res.leftoverBonus)} left over to invest. You're already debt-free as of day one.`;
+  } else {
+    verdict.className = 'bi-verdict good';
+    verdict.innerHTML = `<strong>✓ Bonus applied, interest saved: ${fmt(res.interestSaved)}.</strong> Total debt-free date unchanged because remaining balances are large relative to the bonus — but you're paying less interest every month from here.`;
+  }
+}
+
+// ── Per-loan monthly schedule ──
+function renderPerLoanChart(p) {
+  const activeLoans = p.loans.filter(l => l.bal > 0);
+  if (!activeLoans.length) return;
+
+  // Build balance curve for each loan individually
+  const datasets = activeLoans.map((loan, i) => {
+    let bal = loan.bal;
+    const mrate = loan.rate / 100 / 12;
+    const pmt   = effectiveLoanPayment(loan);
+    const pts   = [Math.round(bal)];
+    for (let m = 1; m <= 180; m++) {
+      if (bal <= 0.01) { pts.push(0); continue; }
+      const int  = bal * mrate;
+      const prin = Math.max(0, Math.min(bal, pmt - int));
+      bal = Math.max(0, bal - prin);
+      pts.push(Math.round(bal));
+    }
+    return {
+      label: loan.name,
+      data: pts,
+      borderColor: LOAN_COLORS[i % LOAN_COLORS.length],
+      backgroundColor: 'transparent',
+      tension: 0.3, fill: false, pointRadius: 0, borderWidth: 2,
+    };
+  });
+
+  const labels = datasets[0].data.map((_, i) => i % 12 === 0 ? (i === 0 ? 'Now' : 'Yr ' + i/12) : '');
+
+  if (perLoanChart) perLoanChart.destroy();
+  perLoanChart = new Chart(document.getElementById('perLoanChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { color: C.ticks, font: { size: 10, family: 'DM Mono' }, boxWidth: 8, boxHeight: 8 }},
+        tooltip: {
+          backgroundColor: '#fff', borderColor: 'rgba(0,0,0,0.1)', borderWidth: 1,
+          titleColor: '#1a1918', bodyColor: '#555',
+          titleFont: { family: 'Syne', size: 11, weight: '600' }, bodyFont: { family: 'DM Mono', size: 10 }, padding: 9,
+          callbacks: {
+            title: ctx => 'Month ' + ctx[0].dataIndex + ' · ' + monthToDate(ctx[0].dataIndex),
+            label: ctx => `  ${ctx.dataset.label}: ${ctx.raw > 0 ? fmt(ctx.raw) : '✓ Paid off'}`,
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: v => fmtK(v), color: C.ticks, font: C.font, maxTicksLimit: 6 }, grid: { color: C.grid }, border: { color: 'transparent' } },
+        x: { ticks: { color: C.ticks, font: { size: 9, family: 'DM Mono' }, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false }, border: { color: C.grid } }
+      }
+    }
+  });
+}
+
+// ── Per-loan monthly table ──
+function renderDebtMonthlyTable(p) {
+  // Build tabs for each loan
+  const tabs = document.getElementById('debt-monthly-tabs');
+  if (!tabs) return;
+  const activeLoans = p.loans.filter(l => l.bal > 0);
+  const tabItems = [{ id: '__all__', name: 'All loans' }, ...activeLoans.map(l => ({ id: l.id, name: l.name }))];
+  tabs.innerHTML = tabItems.map(t =>
+    `<button class="ltab ${currentDebtMonthlyLoan === t.id ? 'active' : ''}" onclick="setDebtMonthlyTab('${t.id}',this)">${t.name}</button>`
+  ).join('');
+
+  // Build schedule for selected loan
+  const sel = currentDebtMonthlyLoan === '__all__'
+    ? activeLoans
+    : activeLoans.filter(l => l.id === currentDebtMonthlyLoan);
+
+  if (!sel.length) { document.getElementById('debtMonthlyBody').innerHTML = ''; return; }
+
+  // Amortize each selected loan month by month
+  let state = sel.map(l => ({ ...l, initBal: l.bal, mrate: l.rate/100/12, pmt: effectiveLoanPayment(l) }));
+  const rows = [];
+  let month = 0;
+  while (state.some(l => l.bal > 0.01) && month < 480) {
+    month++;
+    let totPmt = 0, totInt = 0, totPrin = 0;
+    state = state.map(l => {
+      if (l.bal <= 0.01) return l;
+      const int     = l.bal * l.mrate;
+      const actual  = Math.min(l.bal + int, l.pmt);
+      const prin    = Math.max(0, actual - int);
+      totPmt  += actual;
+      totInt  += int;
+      totPrin += prin;
+      return { ...l, bal: Math.max(0, l.bal - prin) };
+    });
+    const rem       = Math.max(0, state.reduce((a, l) => a + l.bal, 0));
+    const initTot   = sel.reduce((a, l) => a + l.bal, 0);
+    const pctPaid   = initTot > 0 ? ((initTot - rem) / initTot * 100).toFixed(1) : '100';
+    rows.push({ month, date: monthToDate(month), pmt: Math.round(totPmt), prin: Math.round(totPrin), int: Math.round(totInt), bal: Math.round(rem), pct: pctPaid, done: rem < 0.5 });
+    if (rem < 0.5) break;
+  }
+
+  const tbody = document.getElementById('debtMonthlyBody');
+  tbody.innerHTML = rows.map(r => {
+    const yr = Math.floor((r.month - 1) / 12);
+    const moInYr = ((r.month - 1) % 12) + 1;
+    const isYearEnd = r.month % 12 === 0;
+    return `<tr class="${r.done ? 'milestone-row' : isYearEnd ? 'yr5-row' : ''}">
+      <td style="white-space:nowrap">Yr ${yr}_Mo ${moInYr}</td>
+      <td style="text-align:left;color:var(--muted)">${r.date}</td>
+      <td class="paid-col">${fmtMo(r.pmt)}</td>
+      <td class="prin-col">${fmtMo(r.prin)}</td>
+      <td class="int-col">${fmtMo(r.int)}</td>
+      <td class="bal-col" style="font-weight:${r.done?'700':'400'}">${r.done ? '✓ PAID OFF' : fmtMo(r.bal)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px">
+        <div style="flex:1;background:var(--surface2);border-radius:3px;height:5px;overflow:hidden">
+          <div style="width:${r.pct}%;height:100%;background:#15803d;border-radius:3px"></div>
+        </div>
+        <span style="font-size:9px;color:var(--muted);width:30px">${r.pct}%</span>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function setDebtMonthlyTab(id, el) {
+  currentDebtMonthlyLoan = id;
+  document.querySelectorAll('#debt-monthly-tabs .ltab').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  renderDebtMonthlyTable(lastParams);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ASSUMPTIONS SECTION
+// ═══════════════════════════════════════════════════════════════════════
+function renderAssumptions(p) {
+  const card = document.getElementById('assumptions-card');
+  if (!card) return;
+
+  const totalDebt = p.loans.reduce((a, l) => a + l.bal, 0);
+  const yr0Bonuses = (p.internBonus || 0) + (p.tuition || 0);
+  const yr1Bonus = (p.ftBonus || 0);
+
+  const loanRows = p.loans.map(l => {
+    const pmt = effectiveLoanPayment(l);
+    const minPmt = calcLoanPayment(l);
+    const isCustom = l.custPmt !== null;
+    return `<div class="assump-row"><span class="assump-key">${l.name}</span>
+      <span class="assump-val">${fmt(l.bal)} @ ${l.rate}% · ${l.months}mo · ${fmtMo(pmt)}/mo${isCustom ? ' (custom)' : ''}</span></div>`;
+  }).join('');
+
+  const taxNote = p.sal >= 180000 ? '~36% eff. rate' : p.sal >= 120000 ? '~33% eff. rate' : '~30% eff. rate';
+
+  card.innerHTML = `
+    <h3>assumptions &amp; methodology</h3>
+    <p class="card-subtitle">every number in this dashboard is derived from these inputs · update the sidebar to see changes live</p>
+    <div class="assump-grid">
+
+      <div class="assump-block">
+        <div class="assump-block-title">Income &amp; Salary</div>
+        <div class="assump-row"><span class="assump-key">FT Base Salary</span><span class="assump-val">${fmt(p.sal)}/yr</span></div>
+        <div class="assump-row"><span class="assump-key">Annual Raise</span><span class="assump-val">${p.raise}% compounding</span></div>
+        <div class="assump-row"><span class="assump-key">Salary at Yr 10</span><span class="assump-val">${fmt(Math.round(p.sal * Math.pow(1 + p.raise / 100, 10)))}/yr</span></div>
+        <div class="assump-row"><span class="assump-key">Salary at Yr 20</span><span class="assump-val">${fmt(Math.round(p.sal * Math.pow(1 + p.raise / 100, 20)))}/yr</span></div>
+        <div class="assump-row"><span class="assump-key">Salary at Yr 30</span><span class="assump-val">${fmt(Math.round(p.sal * Math.pow(1 + p.raise / 100, 30)))}/yr</span></div>
+        <div class="assump-row"><span class="assump-key">Monthly Savings</span><span class="assump-val">${fmtMo(p.msave)}/mo</span></div>
+        <div class="assump-row"><span class="assump-key">Investment Return</span><span class="assump-val">${p.ret}%/yr (compounded monthly)</span></div>
+      </div>
+
+      <div class="assump-block">
+        <div class="assump-block-title">One-Time Bonuses</div>
+        <div class="assump-row"><span class="assump-key">Intern Signing</span><span class="assump-val">${fmt(p.internBonus)} → Yr 0 assets</span></div>
+        <div class="assump-row"><span class="assump-key">Intern Salary</span><span class="assump-val">$3,365/wk × ~9wks = ~$30k</span></div>
+        <div class="assump-row"><span class="assump-key">FT Signing Bonus</span><span class="assump-val">${fmt(yr1Bonus)} → Yr 1 assets</span></div>
+        <div class="assump-row"><span class="assump-key">Deloitte Tuition PV</span><span class="assump-val">${fmt(p.tuition)} → Yr 0 assets</span></div>
+        <div class="assump-row"><span class="assump-key">Tuition Gross</span><span class="assump-val">$64,612 pre-tax</span></div>
+        <div class="assump-row"><span class="assump-key">Tuition Calc</span><span class="assump-val">50% of $27.5k schol + ($78.4k − $27.5k)</span></div>
+        <div class="assump-row"><span class="assump-key">Tuition Tax/Disc</span><span class="assump-val">~35.1% NY tax · disc. @ 6.54%</span></div>
+        <div class="assump-row"><span class="assump-key">Deloitte S&amp;A Perf Bonus</span><span class="assump-val">up to $43,750 (25% of base)</span></div>
+      </div>
+
+      <div class="assump-block">
+        <div class="assump-block-title">Loans (${p.loans.length} active)</div>
+        ${loanRows}
+        <div class="assump-row" style="margin-top:4px"><span class="assump-key">Payment Formula</span><span class="assump-val">PMT = PV·r·(1+r)ⁿ / ((1+r)ⁿ−1)</span></div>
+        <div class="assump-row"><span class="assump-key">Total Monthly Debt</span><span class="assump-val">${fmtMo(p.pmt)}/mo</span></div>
+        <div class="assump-row"><span class="assump-key">Freed Pmts</span><span class="assump-val">Reinvested when loans pay off</span></div>
+      </div>
+
+      <div class="assump-block">
+        <div class="assump-block-title">Projection Mechanics</div>
+        <div class="assump-row"><span class="assump-key">Start Date</span><span class="assump-val">Apr 2026</span></div>
+        <div class="assump-row"><span class="assump-key">Horizon</span><span class="assump-val">30 years (360 months)</span></div>
+        <div class="assump-row"><span class="assump-key">Compounding</span><span class="assump-val">Monthly on investments</span></div>
+        <div class="assump-row"><span class="assump-key">Salary Growth</span><span class="assump-val">Annual at raise %, not monthly</span></div>
+        <div class="assump-row"><span class="assump-key">Inflation</span><span class="assump-val">Not adjusted (nominal dollars)</span></div>
+        <div class="assump-row"><span class="assump-key">Investment Taxes</span><span class="assump-val">Not deducted (pre-tax simplification)</span></div>
+        <div class="assump-row"><span class="assump-key">Extra Debt Method</span><span class="assump-val">Avalanche (highest rate first)</span></div>
+      </div>
+
+      <div class="assump-block">
+        <div class="assump-block-title">Tax Estimates (Cash Flow tab)</div>
+        <div class="assump-row"><span class="assump-key">Under $50k</span><span class="assump-val">~22% effective rate</span></div>
+        <div class="assump-row"><span class="assump-key">$50k–$80k</span><span class="assump-val">~26% effective rate</span></div>
+        <div class="assump-row"><span class="assump-key">$80k–$120k</span><span class="assump-val">~30% effective rate</span></div>
+        <div class="assump-row"><span class="assump-key">$120k–$180k</span><span class="assump-val">~33% effective rate</span></div>
+        <div class="assump-row"><span class="assump-key">$180k+</span><span class="assump-val">~36% effective rate</span></div>
+        <div class="assump-row"><span class="assump-key">Your Rate (${taxNote})</span><span class="assump-val">NYC / NY State included</span></div>
+        <div class="assump-row"><span class="assump-key">Bonus Tax (NY)</span><span class="assump-val">Federal ~26.5% + NY 6.25% + Medicare 2.35% = ~35.1%</span></div>
+      </div>
+
+      <div class="assump-block">
+        <div class="assump-block-title">Data Sources</div>
+        <div class="assump-row"><span class="assump-key">FT Salary</span><span class="assump-val">2026 MC Consulting Salaries Report</span></div>
+        <div class="assump-row"><span class="assump-key">FT Signing</span><span class="assump-val">Deloitte S&amp;A: $30k ($20k contingent)</span></div>
+        <div class="assump-row"><span class="assump-key">Intern Bonus</span><span class="assump-val">Deloitte offer letter, Jan 2026</span></div>
+        <div class="assump-row"><span class="assump-key">Intern Rate</span><span class="assump-val">$3,365/wk, Summer 2026</span></div>
+        <div class="assump-row"><span class="assump-key">Tuition Benefit</span><span class="assump-val">Deloitte offer letter · 2nd yr terms</span></div>
+        <div class="assump-row"><span class="assump-key">MBA Rate</span><span class="assump-val">6.54% (your actual loan rate)</span></div>
+        <div class="assump-row"><span class="assump-key">Disclaimer</span><span class="assump-val">Not financial advice</span></div>
+      </div>
+
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MONTHLY CASH FLOW DATA BUILDER
+//  Matches projectNetWorth() logic exactly — all numbers tie to master
+// ═══════════════════════════════════════════════════════════════════════
+let cfNwChart, cfBreakChart;
+
+function buildMonthlyData(p) {
+  const inv_r      = p.ret / 100 / 12;
+  const yr0Bonuses = (p.internBonus || 0) + (p.tuition || 0);
+  const yr1Bonus   = (p.ftBonus || 0);
+
+  let curInvest = p.invest + p.savings + p.other + yr0Bonuses;
+  let loanState = p.loans
+    .filter(l => l.bal > 0 && l.months > 0)
+    .map(l => ({ bal: l.bal, mrate: l.rate / 100 / 12, pmt: effectiveLoanPayment(l), id: l.id }));
+
+  const rows = [];
+
+  for (let m = 1; m <= 360; m++) {
+    const yearIdx   = Math.ceil(m / 12) - 1; // 0-based year index (0 = first year of work)
+    const annualSal = p.sal * Math.pow(1 + p.raise / 100, yearIdx);
+    const monthlySal = annualSal / 12;
+    const taxRate   = estimateTaxRate(annualSal);
+    const takeHome  = monthlySal * (1 - taxRate);
+
+    // FT bonus at month 1
+    if (m === 1) curInvest += yr1Bonus;
+
+    // Loan payments (avalanche for extra)
+    const totalOrigPmt = loanState.reduce((a, l) => a + l.pmt, 0);
+    let monthLoanPmt = 0;
+    loanState = loanState.map(l => {
+      if (l.bal <= 0.01) return l;
+      const int      = l.bal * l.mrate;
+      const actual   = Math.min(l.bal + int, l.pmt);
+      const prin     = Math.max(0, actual - int);
+      monthLoanPmt  += actual;
+      return { ...l, bal: Math.max(0, l.bal - prin) };
+    });
+
+    // Freed payments reinvested (matches projectNetWorth exactly)
+    const stillPaying = loanState.filter(l => l.bal > 0.01).reduce((a, l) => a + l.pmt, 0);
+    const freed       = totalOrigPmt - stillPaying;
+
+    curInvest = curInvest * (1 + inv_r) + p.msave + freed;
+
+    const debt = Math.max(0, loanState.reduce((a, l) => a + l.bal, 0));
+
+    rows.push({
+      month:    m,
+      date:     monthToDate(m),
+      year:     Math.ceil(m / 12),
+      grossMo:  Math.round(monthlySal),
+      takeHome: Math.round(takeHome),
+      loanPmt:  Math.round(monthLoanPmt),
+      freed:    Math.round(freed),
+      savings:  Math.round(p.msave + freed),
+      invest:   Math.round(curInvest),
+      debt:     Math.round(debt),
+      nw:       Math.round(curInvest - debt),
+    });
+  }
+
+  return rows;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  CASH FLOWS VIEW RENDERER
+// ═══════════════════════════════════════════════════════════════════════
+function renderCashFlows() {
+  const p    = getParams();
+  const rows = buildMonthlyData(p);
+
+  // ── KPIs ──
+  const r5   = rows[59],  r10  = rows[119], r20  = rows[239], r30  = rows[359];
+  const dfMo = rows.findIndex(r => r.debt < 1);
+  document.getElementById('cf-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Monthly Take-Home (Yr 1)</div><div class="kpi-value pos">${fmtMo(rows[0].takeHome)}</div><div class="kpi-sub">${p.sal >= 175000 ? 'Deloitte S&A $175k base' : 'at $' + (p.sal/1000).toFixed(0) + 'k salary'}</div></div>
+    <div class="kpi"><div class="kpi-label">Monthly Debt Payments</div><div class="kpi-value neg">${fmtMo(rows[0].loanPmt)}</div><div class="kpi-sub">${p.loans.length} loans · ${(rows[0].loanPmt / rows[0].takeHome * 100).toFixed(0)}% of take-home</div></div>
+    <div class="kpi"><div class="kpi-label">Debt-Free Month</div><div class="kpi-value ${dfMo >= 0 ? 'pos' : 'neg'}" style="font-size:16px">${dfMo >= 0 ? rows[dfMo].date : 'Beyond 30yr'}</div><div class="kpi-sub">${dfMo >= 0 ? 'Month ' + rows[dfMo].month + ' · Yr ' + rows[dfMo].year : 'Extend horizon'}</div></div>
+    <div class="kpi"><div class="kpi-label">Net Worth at Month 120</div><div class="kpi-value ${r10.nw >= 0 ? 'pos' : 'neg'}">${fmt(r10.nw)}</div><div class="kpi-sub">${r10.date} · ties to Overview Yr 10</div></div>`;
+
+  // ── NW Line Chart ──
+  // Sample every month but render as full 360 points
+  const moLabels = rows.map(r => r.month % 12 === 0 || r.month === 1 ? r.date : '');
+  const nwData   = rows.map(r => r.nw);
+  const invData  = rows.map(r => r.invest);
+  const dbtData  = rows.map(r => r.debt);
+
+  if (cfNwChart) cfNwChart.destroy();
+  cfNwChart = new Chart(document.getElementById('cfNwChart'), {
+    type: 'line',
+    data: { labels: moLabels, datasets: [
+      { label: 'Net Worth', data: nwData,  borderColor: '#15803d', backgroundColor: 'rgba(21,128,61,0.07)', tension: 0.2, fill: true,  pointRadius: 0, borderWidth: 2 },
+      { label: 'Assets',   data: invData, borderColor: '#1e40af', backgroundColor: 'transparent',          tension: 0.2, fill: false, pointRadius: 0, borderDash: [5,3], borderWidth: 1.5 },
+      { label: 'Debt',     data: dbtData, borderColor: '#b91c1c', backgroundColor: 'transparent',          tension: 0.2, fill: false, pointRadius: 0, borderDash: [3,3], borderWidth: 1.5 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { color: C.ticks, font: { size: 10, family: 'DM Mono' }, boxWidth: 9, boxHeight: 9 }},
+        tooltip: {
+          backgroundColor: '#fff', borderColor: 'rgba(0,0,0,0.12)', borderWidth: 1,
+          titleColor: '#1a1918', bodyColor: '#555',
+          titleFont: { family: 'Syne', size: 12, weight: '600' },
+          bodyFont:  { family: 'DM Mono', size: 11 }, padding: 10,
+          callbacks: {
+            title: ctx => rows[ctx[0].dataIndex].date,
+            label: ctx => `  ${ctx.dataset.label}: ${fmt(ctx.raw)}`,
+            afterBody: ctx => {
+              const r = rows[ctx[0].dataIndex];
+              return [`  Loan pmts: ${r.loanPmt > 0 ? fmtMo(r.loanPmt) + '/mo' : '✓ Debt Free'}`, `  Take-home: ~${fmtMo(r.takeHome)}/mo`];
+            }
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: v => fmt(v), color: C.ticks, font: C.font, maxTicksLimit: 6 }, grid: { color: C.grid }, border: { color: 'transparent' } },
+        x: { ticks: { color: C.ticks, font: { size: 9, family: 'DM Mono' }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false }, border: { color: C.grid } }
+      }
+    }
+  });
+
+  // ── Cash Breakdown Chart (sampled every 6 months) ──
+  const sample  = rows.filter((_, i) => i % 6 === 0);
+  const sLabels = sample.map(r => r.date);
+  if (cfBreakChart) cfBreakChart.destroy();
+  cfBreakChart = new Chart(document.getElementById('cfBreakChart'), {
+    type: 'bar',
+    data: { labels: sLabels, datasets: [
+      { label: 'Take-Home',    data: sample.map(r => r.takeHome), backgroundColor: 'rgba(21,128,61,0.55)',  borderRadius: 2 },
+      { label: 'Loan Pmts',   data: sample.map(r => r.loanPmt),  backgroundColor: 'rgba(107,33,168,0.55)', borderRadius: 2 },
+      { label: 'Savings',     data: sample.map(r => r.savings),  backgroundColor: 'rgba(30,64,175,0.45)',  borderRadius: 2 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels: { color: C.ticks, font: { size: 10, family: 'DM Mono' }, boxWidth: 9, boxHeight: 9 }}},
+      scales: {
+        x: { stacked: false, ticks: { color: C.ticks, font: { size: 9, family: 'DM Mono' }, maxTicksLimit: 12, maxRotation: 45 }, grid: { display: false } },
+        y: { ticks: { callback: v => fmtK(v), color: C.ticks, font: C.font, maxTicksLimit: 6 }, grid: { color: C.grid }, border: { color: 'transparent' } }
+      }
+    }
+  });
+
+  // ── Year-jump buttons ──
+  const jumps = document.getElementById('cf-year-jumps');
+  jumps.innerHTML = Array.from({ length: 30 }, (_, i) => {
+    const yr = i + 1;
+    return `<button class="cf-jump-btn" onclick="scrollCfToYear(${yr})">Yr ${yr}</button>`;
+  }).join('');
+
+  // ── Table ──
+  const tbody = document.getElementById('cfBody');
+  let html = '';
+  rows.forEach((row, i) => {
+    const isYearStart = i % 12 === 0;
+    const yr = row.year;
+    const annualSalFull = p.sal * Math.pow(1 + p.raise / 100, yr - 1);
+    if (isYearStart) {
+      html += `<tr class="cf-yr-header" id="cf-yr-${yr}">
+        <td colspan="9">── Year ${yr} · ${monthToDate(i + 1)} – ${monthToDate(i + 12)} · Salary ${fmt(Math.round(annualSalFull))}/yr ──</td>
+      </tr>`;
+    }
+    const nwClass    = row.nw >= 0 ? 'nw-pos' : 'nw-neg';
+    const freedNote  = row.freed > 50 ? `<span style="font-size:9px;color:var(--green)"> +${fmtMo(row.freed)} freed</span>` : '';
+    const dfClass    = row.debt < 1 ? 'cf-debt-free' : '';
+    html += `<tr class="${dfClass}">
+      <td style="color:var(--dim)">${row.month}</td>
+      <td style="text-align:left;color:var(--muted)">${row.date}</td>
+      <td class="sal-col">${fmtMo(row.grossMo)}</td>
+      <td>${fmtMo(row.takeHome)}</td>
+      <td style="color:var(--purple)">${row.loanPmt > 0 ? fmtMo(row.loanPmt) : '<span style="color:var(--green)">✓ Free</span>'}</td>
+      <td>${fmtMo(row.savings)}${freedNote}</td>
+      <td class="assets-col">${fmt(row.invest)}</td>
+      <td class="debt-col">${row.debt > 0 ? fmt(row.debt) : '<span style="color:var(--green)">✓ $0</span>'}</td>
+      <td class="${nwClass}">${fmt(row.nw)}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function scrollCfToYear(yr) {
+  const el = document.getElementById('cf-yr-' + yr);
+  const wrap = document.getElementById('cf-table-wrap');
+  if (el && wrap) {
+    wrap.scrollTop = el.offsetTop - wrap.offsetTop - 30;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════
+function init() {
+  setLoans(scenarioDefaults['base'].loans);
+  renderLoanInputs();
+  renderAmortTabs();
+  update();
+  plaidInit();
+}
+init();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  PLAID INTEGRATION
+//  Requires your Railway server running server.js.
+//  Paste your Railway URL in the sidebar input, then click Connect.
+// ═══════════════════════════════════════════════════════════════════════
+
+// Where we store the fetched balances during this session
+let plaidBalanceData = null;
+
+// ── Persist the server URL across page reloads ───────────
+function savePlaidServerUrl() {
+  const url = document.getElementById('plaid-server-url').value.trim();
+  try { localStorage.setItem('plaid_server_url', url); } catch {}
+}
+
+function getPlaidServerUrl() {
+  const input = document.getElementById('plaid-server-url').value.trim();
+  if (input) return input.replace(/\/$/, '');
+  try { return (localStorage.getItem('plaid_server_url') || '').replace(/\/$/, ''); } catch { return ''; }
+}
+
+function plaidInit() {
+  // Restore saved server URL
+  try {
+    const saved = localStorage.getItem('plaid_server_url');
+    if (saved) document.getElementById('plaid-server-url').value = saved;
+  } catch {}
+  // Check if any banks are already linked
+  plaidRefreshStatus();
+}
+
+// ── Check linked banks from server ───────────────────────
+async function plaidRefreshStatus() {
+  const base = getPlaidServerUrl();
+  if (!base) return;
+  try {
+    const r = await fetch(base + '/linked');
+    if (!r.ok) return;
+    const data = await r.json();
+    renderPlaidStatus(data.institutions || []);
+    if ((data.institutions || []).length > 0) {
+      // Load balances automatically if already linked
+      plaidFetchBalances();
+    }
+  } catch { /* server not reachable yet — silent */ }
+}
+
+// ── Render linked bank chips in sidebar ──────────────────
+function renderPlaidStatus(institutions) {
+  const el = document.getElementById('plaid-status');
+  if (!institutions.length) {
+    el.innerHTML = `<span style="color:var(--dim);font-size:10px">No banks linked yet.</span>`;
+    return;
+  }
+  el.innerHTML = institutions.map(inst => `
+    <div class="linked-bank">
+      ✓ ${inst.institution}
+      <button class="unlink-btn" onclick="plaidDisconnect()" title="Disconnect all">✕</button>
+    </div>
+  `).join('');
+}
+
+// ── Step 1: Click "Connect bank" → get link_token from server → open Plaid popup ──
+async function plaidOpenLink() {
+  const base = getPlaidServerUrl();
+  if (!base) {
+    alert('Paste your Railway server URL above first (e.g. https://yourapp.up.railway.app)');
+    return;
+  }
+
+  const btn = document.getElementById('plaid-connect-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Loading…';
+
+  try {
+    // Get link_token from your server
+    const r = await fetch(base + '/create_link_token', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    if (!r.ok) throw new Error('Server returned ' + r.status + '. Is your Railway server running?');
+    const { link_token, error } = await r.json();
+    if (error) throw new Error(error);
+
+    // Open Plaid Link popup
+    const handler = Plaid.create({
+      token: link_token,
+
+      // ── Success: user logged into their bank ────────────
+      onSuccess: async (public_token, metadata) => {
+        const institutionName = metadata.institution?.name || 'Bank';
+        btn.textContent = '⏳ Saving…';
+        try {
+          // Exchange public_token for permanent access_token (server stores it)
+          const ex = await fetch(base + '/exchange_token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ public_token, institution_name: institutionName }),
+          });
+          if (!ex.ok) throw new Error('Exchange failed');
+          btn.textContent = '✓ Connected!';
+          setTimeout(() => { btn.textContent = '+ Connect another'; btn.disabled = false; }, 2000);
+          await plaidRefreshStatus();
+          await plaidFetchBalances();
+        } catch (err) {
+          alert('Error saving token: ' + err.message);
+          btn.textContent = 'Connect bank account';
+          btn.disabled = false;
+        }
+      },
+
+      onExit: (err) => {
+        btn.textContent = 'Connect bank account';
+        btn.disabled = false;
+        if (err) console.warn('Plaid Link exited:', err);
+      },
+    });
+
+    handler.open();
+
+  } catch (err) {
+    alert('Could not start Plaid: ' + err.message + '\n\nMake sure:\n1. Your Railway server is running\n2. You pasted the correct URL above');
+    btn.textContent = 'Connect bank account';
+    btn.disabled = false;
+  }
+}
+
+// ── Step 2: Fetch balances and show auto-fill bar ─────────
+async function plaidFetchBalances() {
+  const base = getPlaidServerUrl();
+  if (!base) return;
+  try {
+    const r = await fetch(base + '/balances');
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.accounts || !data.accounts.length) return;
+
+    plaidBalanceData = data;
+
+    // Show auto-fill bar
+    const bar = document.getElementById('plaid-autofill-bar');
+    const msg = document.getElementById('plaid-autofill-msg');
+    const { summary } = data;
+    const parts = [];
+    if (summary.checking_savings > 0) parts.push(`Savings $${Math.round(summary.checking_savings).toLocaleString()}`);
+    if (summary.investments     > 0) parts.push(`Invest $${Math.round(summary.investments).toLocaleString()}`);
+    if (summary.credit_card_debt> 0) parts.push(`CC $${Math.round(summary.credit_card_debt).toLocaleString()}`);
+    msg.textContent = '📡 Live: ' + (parts.join(' · ') || 'data loaded');
+    bar.classList.add('show');
+
+  } catch { /* silent */ }
+}
+
+// ── Step 3: Auto-fill sidebar fields with live bank data ──
+function plaidAutoFill() {
+  if (!plaidBalanceData) return;
+  const { summary } = plaidBalanceData;
+
+  // Fill assets
+  if (summary.checking_savings > 0) {
+    document.getElementById('s_savings').value = Math.round(summary.checking_savings);
+  }
+  if (summary.investments > 0) {
+    document.getElementById('s_invest').value = Math.round(summary.investments);
+  }
+
+  // Fill CC balance into the Credit Card loan row
+  if (summary.credit_card_debt > 0) {
+    const ccLoan = loans.find(l => l.name.toLowerCase().includes('credit') || l.name.toLowerCase().includes('cc'));
+    if (ccLoan) {
+      ccLoan.bal = Math.round(summary.credit_card_debt);
+      renderLoanInputs();
+    }
+  }
+
+  // Trigger re-render
+  onSidebarInput();
+
+  const bar = document.getElementById('plaid-autofill-bar');
+  const msg = document.getElementById('plaid-autofill-msg');
+  msg.textContent = '✓ Sidebar updated with live balances';
+  setTimeout(() => {
+    msg.textContent = '📡 Live data loaded — click to re-sync';
+  }, 3000);
+}
+
+// ── Disconnect all linked banks ───────────────────────────
+async function plaidDisconnect() {
+  const base = getPlaidServerUrl();
+  if (!base) return;
+  if (!confirm('Disconnect all linked banks? You can re-link anytime.')) return;
+  try {
+    await fetch(base + '/disconnect', { method: 'DELETE' });
+    plaidBalanceData = null;
+    document.getElementById('plaid-status').innerHTML = `<span style="color:var(--dim);font-size:10px">Disconnected.</span>`;
+    document.getElementById('plaid-autofill-bar').classList.remove('show');
+  } catch { alert('Could not reach server.'); }
+}
+</script>
+</body>
+</html>
